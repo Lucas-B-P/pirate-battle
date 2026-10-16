@@ -1,7 +1,0 @@
-﻿{
-    "build_type":  "legacy",
-    "source":  {
-                   "path":  "/",
-                   "branch":  "gh-pages"
-               }
-}
