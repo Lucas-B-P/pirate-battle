@@ -1,3 +1,4 @@
+import { assetUrl } from '../assetUrl'
 import { isE2EMode } from './testApi'
 
 type SoundName =
@@ -14,25 +15,25 @@ type SoundName =
 
 const SOUND_FILES: Record<SoundName, string[]> = {
   cannonFire: [
-    '/assets/sounds/cannon_fire_1.wav',
-    '/assets/sounds/cannon_fire_2.wav',
-    '/assets/sounds/cannon_fire_3.wav',
+    assetUrl('assets/sounds/cannon_fire_1.wav'),
+    assetUrl('assets/sounds/cannon_fire_2.wav'),
+    assetUrl('assets/sounds/cannon_fire_3.wav'),
   ],
-  broadside: ['/assets/sounds/cannon_broadside.wav'],
+  broadside: [assetUrl('assets/sounds/cannon_broadside.wav')],
   explosion: [
-    '/assets/sounds/ship_explosion_1.wav',
-    '/assets/sounds/ship_explosion_2.wav',
+    assetUrl('assets/sounds/ship_explosion_1.wav'),
+    assetUrl('assets/sounds/ship_explosion_2.wav'),
   ],
   woodHit: [
-    '/assets/sounds/ship_wood_hit_1.wav',
-    '/assets/sounds/ship_wood_hit_2.wav',
+    assetUrl('assets/sounds/ship_wood_hit_1.wav'),
+    assetUrl('assets/sounds/ship_wood_hit_2.wav'),
   ],
-  score: ['/assets/sounds/score_point.wav'],
-  pause: ['/assets/sounds/game_pause.wav'],
-  resume: ['/assets/sounds/game_resume.wav'],
-  gameOver: ['/assets/sounds/game_over.wav'],
-  complete: ['/assets/sounds/game_complete.wav'],
-  start: ['/assets/sounds/game_start.wav'],
+  score: [assetUrl('assets/sounds/score_point.wav')],
+  pause: [assetUrl('assets/sounds/game_pause.wav')],
+  resume: [assetUrl('assets/sounds/game_resume.wav')],
+  gameOver: [assetUrl('assets/sounds/game_over.wav')],
+  complete: [assetUrl('assets/sounds/game_complete.wav')],
+  start: [assetUrl('assets/sounds/game_start.wav')],
 }
 
 function pick(files: string[]): string {

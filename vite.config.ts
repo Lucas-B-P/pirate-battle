@@ -29,11 +29,19 @@ function gameAssetsPlugin(): Plugin {
     },
     closeBundle() {
       fs.cpSync(assetsDir, distAssetsDir, { recursive: true })
+      // SPA fallback for GitHub Pages deep links
+      const distDir = path.resolve(rootDir, 'dist')
+      const indexHtml = path.join(distDir, 'index.html')
+      if (fs.existsSync(indexHtml)) {
+        fs.copyFileSync(indexHtml, path.join(distDir, '404.html'))
+      }
     },
   }
 }
 
 export default defineConfig({
+  // GitHub Pages project site: BASE_PATH=/pirate-battle/ npm run build
+  base: process.env.BASE_PATH || '/',
   plugins: [react(), gameAssetsPlugin()],
   resolve: {
     alias: {

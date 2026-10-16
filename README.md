@@ -84,11 +84,23 @@ Mocks run in `npm run dev`, Playwright, and the **published** build via `/mockSe
 
 ## Deploy
 
-Static SPA (Vite). Suggested host: Vercel.
+Static SPA (Vite). `vercel.json` rewrites SPA routes to `index.html`.
 
 ```bash
 npm run build
-# dist/ is the output; vercel.json rewrites SPA routes to index.html
 ```
 
-MSW worker file is served from `public/mockServiceWorker.js`.
+GitHub Pages (project site under `/pirate-battle/`):
+
+```bash
+set BASE_PATH=/pirate-battle/
+npm run build
+npx gh-pages -d dist
+```
+
+### Public links
+
+- Repository: https://github.com/Lucas-B-P/pirate-battle
+- Live demo: https://lucas-b-p.github.io/pirate-battle/
+
+MSW worker file is served from `public/mockServiceWorker.js` (works in the published build).

@@ -1,4 +1,5 @@
 import { Assets, Texture } from 'pixi.js'
+import { assetUrl } from '../assetUrl'
 
 export type GameTextures = {
   water: Texture
@@ -12,14 +13,14 @@ export type GameTextures = {
 }
 
 const ASSET_PATHS = {
-  water: '/assets/png/default/tiles/tile_73.png',
-  island: '/assets/png/default/tiles/tile_45.png',
-  playerShip: '/assets/png/default/ships/ship_1.png',
-  chaserShip: '/assets/png/default/ships/ship_4.png',
-  shooterShip: '/assets/png/default/ships/ship_8.png',
-  cannonBall: '/assets/png/default/ship_parts/cannon_ball.png',
-  explosion: '/assets/png/default/effects/explosion_1.png',
-  fire: '/assets/png/default/effects/fire_1.png',
+  water: assetUrl('assets/png/default/tiles/tile_73.png'),
+  island: assetUrl('assets/png/default/tiles/tile_45.png'),
+  playerShip: assetUrl('assets/png/default/ships/ship_1.png'),
+  chaserShip: assetUrl('assets/png/default/ships/ship_4.png'),
+  shooterShip: assetUrl('assets/png/default/ships/ship_8.png'),
+  cannonBall: assetUrl('assets/png/default/ship_parts/cannon_ball.png'),
+  explosion: assetUrl('assets/png/default/effects/explosion_1.png'),
+  fire: assetUrl('assets/png/default/effects/fire_1.png'),
 } as const
 
 export async function loadGameTextures(

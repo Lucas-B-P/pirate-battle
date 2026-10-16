@@ -30,7 +30,7 @@ export function MainMenuScreen() {
         <article className="panel menu-card">
           <img
             className="brand-logo"
-            src="/assets/logo_jungle_gaming.svg"
+            src={`${import.meta.env.BASE_URL}assets/logo_jungle_gaming.svg`}
             alt="Jungle Gaming"
           />
           <p className="eyebrow">Naval shooter</p>
@@ -79,7 +79,7 @@ export function MainMenuScreen() {
           </ul>
           <img
             className="preview-art"
-            src="/assets/sample_menu.png"
+            src={`${import.meta.env.BASE_URL}assets/sample_menu.png`}
             alt="Pirate Battle menu preview"
           />
         </aside>

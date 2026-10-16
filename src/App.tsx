@@ -6,7 +6,9 @@ import { ResultScreen } from './screens/ResultScreen'
 
 export default function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter
+      basename={import.meta.env.BASE_URL.replace(/\/$/, '') || '/'}
+    >
       <Routes>
         <Route path="/" element={<MainMenuScreen />} />
         <Route path="/options" element={<OptionsScreen />} />
