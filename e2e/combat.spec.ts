@@ -53,10 +53,12 @@ test.describe('Combat arena', () => {
     await page.keyboard.up('KeyW')
 
     const player = await page.evaluate(() => window.__pirateBattleTest!.getPlayer())
-    expect(player.x).toBeGreaterThanOrEqual(26)
-    expect(player.y).toBeGreaterThanOrEqual(26)
-    expect(player.x).toBeLessThanOrEqual(1280 - 26)
-    expect(player.y).toBeLessThanOrEqual(720 - 26)
+    const tile = 640
+    const radius = 108
+    expect(player.x).toBeGreaterThanOrEqual(radius)
+    expect(player.y).toBeGreaterThanOrEqual(radius)
+    expect(player.x).toBeLessThanOrEqual(34 * tile - radius)
+    expect(player.y).toBeLessThanOrEqual(17 * tile - radius)
   })
 
   test('pauses with P and does not advance the timer while paused', async ({
@@ -80,7 +82,7 @@ test.describe('Combat arena', () => {
     expect(paused.paused).toBeTruthy()
     expect(paused.timeLeft).toBeCloseTo(mid.timeLeft, 1)
 
-    await page.getByTestId('game-stage').getByRole('button', { name: 'Resume' }).click()
+    await page.getByTestId('game-stage').getByRole('button', { name: 'Continuar' }).click()
     await expect(page.getByTestId('hud-status')).toHaveText('Fighting')
     await stepSeconds(page, 0.2)
     const resumed = await page.evaluate(() => window.__pirateBattleTest!.getSnapshot())

@@ -34,18 +34,26 @@ Optional:
 
 Combat tests use `?e2e=1` and `window.__pirateBattleTest` (seeded RNG + `step(dt)`).
 
-## Controls
+## Controles
 
-| Action | Keyboard | Touch |
+| Ação | Teclado | Toque |
 | --- | --- | --- |
-| Move forward | `W` / `ArrowUp` | ▲ |
-| Rotate | `A` `D` / arrows | ◀ ▶ |
-| Front shot | `Space` / `J` | Fire |
-| Left broadside | `Q` / `K` | L |
-| Right broadside | `E` / `L` | R |
-| Pause | `P` / `Esc` | Pause / Resume in HUD |
+| Avançar | `W` / `↑` | ▲ |
+| Girar | `A` `D` | ◀ ▶ |
+| Canhão (mira no mouse) | `Espaço` / clique | Fire |
+| Lateral esquerda | `Q` | L |
+| Lateral direita | `E` | R |
+| Pausar | `P` / `Esc` | Pause |
 
-Mobile: **landscape** is preferred. Touch pads appear on smaller widths.
+## Mapa com tiles
+
+Edite o grid ASCII em:
+
+`src/game/maps/channel.level.ts`
+
+Instruções: `src/game/maps/README.md`
+
+Tiles: `assets/png/default/tiles/` e sheet em `assets/tilesheet/`.
 
 ## Options (persisted in `localStorage`)
 

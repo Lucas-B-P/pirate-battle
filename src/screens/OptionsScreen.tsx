@@ -1,14 +1,32 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
+  setGameMusicVolume,
+  setMenuMusicVolume,
+  setSfxVolume,
+  startMenuAmbience,
+} from '../audio/uiAudio'
+import {
+  MUSIC_VOLUME_MAX,
+  MUSIC_VOLUME_MIN,
   SESSION_TIME_MAX,
   SESSION_TIME_MIN,
   SPAWN_TIME_MAX,
   SPAWN_TIME_MIN,
   type PlayerOptions,
 } from '../config/gameConfig'
-import { Button } from '../components/Button'
 import { ScreenShell } from '../components/ScreenShell'
+import { WoodBrand } from '../components/WoodBrand'
+import { WoodButton } from '../components/WoodButton'
+import { WoodPanel } from '../components/WoodPanel'
+import { ZoomBackdrop } from '../components/ZoomBackdrop'
+import { resetMockData } from '../mocks/data'
+import {
+  NETWORK_SCENARIOS,
+  loadNetworkScenario,
+  saveNetworkScenario,
+  type NetworkScenario,
+} from '../mocks/networkScenario'
 import { loadPlayerOptions, savePlayerOptions } from '../storage/optionsStorage'
 
 type FormErrors = {
@@ -16,7 +34,7 @@ type FormErrors = {
   enemySpawnTimeSeconds?: string
 }
 
-function validateOptions(options: PlayerOptions): FormErrors {
+function validatePartial(options: PlayerOptions): FormErrors {
   const errors: FormErrors = {}
 
   if (
@@ -24,7 +42,7 @@ function validateOptions(options: PlayerOptions): FormErrors {
     options.sessionTimeSeconds < SESSION_TIME_MIN ||
     options.sessionTimeSeconds > SESSION_TIME_MAX
   ) {
-    errors.sessionTimeSeconds = `Session time must be between ${SESSION_TIME_MIN} and ${SESSION_TIME_MAX} seconds.`
+    errors.sessionTimeSeconds = `Entre ${SESSION_TIME_MIN} e ${SESSION_TIME_MAX}s.`
   }
 
   if (
@@ -32,132 +50,233 @@ function validateOptions(options: PlayerOptions): FormErrors {
     options.enemySpawnTimeSeconds < SPAWN_TIME_MIN ||
     options.enemySpawnTimeSeconds > SPAWN_TIME_MAX
   ) {
-    errors.enemySpawnTimeSeconds = `Enemy spawn time must be between ${SPAWN_TIME_MIN} and ${SPAWN_TIME_MAX} seconds.`
+    errors.enemySpawnTimeSeconds = `Entre ${SPAWN_TIME_MIN} e ${SPAWN_TIME_MAX}s.`
   }
 
   return errors
 }
 
+function VolumeSlider({
+  id,
+  label,
+  value,
+  testId,
+  onChange,
+}: {
+  id: string
+  label: string
+  value: number
+  testId: string
+  onChange: (value: number) => void
+}) {
+  const percent = Math.round(value * 100)
+  return (
+    <div className="settings-slider">
+      <div className="settings-slider__head">
+        <label htmlFor={id}>{label}</label>
+        <span>{percent}%</span>
+      </div>
+      <div className="settings-slider__track-wrap">
+        <div
+          className="settings-slider__fill"
+          style={{ width: `${percent}%` }}
+          aria-hidden="true"
+        />
+        <input
+          id={id}
+          data-testid={testId}
+          className="settings-slider__input"
+          type="range"
+          min={MUSIC_VOLUME_MIN}
+          max={MUSIC_VOLUME_MAX}
+          step={0.01}
+          value={value}
+          onChange={(event) => onChange(Number(event.target.value))}
+        />
+      </div>
+    </div>
+  )
+}
+
 export function OptionsScreen() {
   const navigate = useNavigate()
   const [options, setOptions] = useState<PlayerOptions>(loadPlayerOptions)
+  const [scenario, setScenario] = useState<NetworkScenario>(loadNetworkScenario)
   const [errors, setErrors] = useState<FormErrors>({})
-  const [savedMessage, setSavedMessage] = useState('')
+  const saveTimer = useRef<number | null>(null)
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
+  useEffect(() => {
+    startMenuAmbience()
+    setMenuMusicVolume(options.musicVolume)
+    setGameMusicVolume(options.gameMusicVolume)
+    setSfxVolume(options.sfxVolume)
+  }, [options.musicVolume, options.gameMusicVolume, options.sfxVolume])
 
-    const nextErrors = validateOptions(options)
+  useEffect(() => {
+    const nextErrors = validatePartial(options)
     setErrors(nextErrors)
 
-    if (Object.keys(nextErrors).length > 0) {
-      setSavedMessage('')
-      return
-    }
+    if (Object.keys(nextErrors).length > 0) return
 
-    savePlayerOptions(options)
-    setSavedMessage('Options saved. New matches will use these values.')
+    if (saveTimer.current !== null) {
+      window.clearTimeout(saveTimer.current)
+    }
+    saveTimer.current = window.setTimeout(() => {
+      savePlayerOptions(options)
+      setMenuMusicVolume(options.musicVolume)
+      setGameMusicVolume(options.gameMusicVolume)
+      setSfxVolume(options.sfxVolume)
+    }, 120)
+
+    return () => {
+      if (saveTimer.current !== null) {
+        window.clearTimeout(saveTimer.current)
+      }
+    }
+  }, [options])
+
+  function patch(partial: Partial<PlayerOptions>) {
+    setOptions((current) => ({ ...current, ...partial }))
   }
 
   return (
-    <ScreenShell title="Options">
-      <section className="panel options-card">
-        <div className="panel-header">
-          <div>
-            <p className="eyebrow">Settings</p>
-            <h1>Options</h1>
-            <p className="muted">
-              These values are saved in this browser and applied when a new match
-              starts.
-            </p>
-          </div>
-          <Button variant="ghost" onClick={() => navigate('/')}>
-            Back
-          </Button>
+    <ScreenShell title="Opções" variant="game">
+      <div className="wood-stage wood-stage--options">
+        <ZoomBackdrop />
+
+        <div className="wood-stage__content wood-stage__content--options">
+          <WoodPanel className="wood-panel--options wood-panel--settings">
+            <p className="settings-kicker">Menu</p>
+            <h1 className="settings-title">Opções</h1>
+
+            <div className="settings-body wood-form">
+              <VolumeSlider
+                id="menu-music-volume"
+                label="Música do menu"
+                testId="music-volume"
+                value={options.musicVolume}
+                onChange={(musicVolume) => {
+                  setMenuMusicVolume(musicVolume)
+                  patch({ musicVolume })
+                }}
+              />
+
+              <VolumeSlider
+                id="game-music-volume"
+                label="Música do jogo"
+                testId="game-music-volume"
+                value={options.gameMusicVolume}
+                onChange={(gameMusicVolume) => {
+                  setGameMusicVolume(gameMusicVolume)
+                  patch({ gameMusicVolume })
+                }}
+              />
+
+              <VolumeSlider
+                id="sfx-volume"
+                label="Som dos efeitos"
+                testId="sfx-volume"
+                value={options.sfxVolume}
+                onChange={(sfxVolume) => {
+                  setSfxVolume(sfxVolume)
+                  patch({ sfxVolume })
+                }}
+              />
+
+              <div className="field">
+                <label htmlFor="session-time">Tempo da sessão (s)</label>
+                <input
+                  id="session-time"
+                  data-testid="session-time"
+                  type="number"
+                  min={SESSION_TIME_MIN}
+                  max={SESSION_TIME_MAX}
+                  value={options.sessionTimeSeconds}
+                  onChange={(event) =>
+                    patch({ sessionTimeSeconds: Number(event.target.value) })
+                  }
+                />
+                {errors.sessionTimeSeconds ? (
+                  <p className="field-error" role="alert">
+                    {errors.sessionTimeSeconds}
+                  </p>
+                ) : null}
+              </div>
+
+              <div className="field">
+                <label htmlFor="spawn-time">Spawn de inimigos (s)</label>
+                <input
+                  id="spawn-time"
+                  data-testid="spawn-time"
+                  type="number"
+                  min={SPAWN_TIME_MIN}
+                  max={SPAWN_TIME_MAX}
+                  step="0.5"
+                  value={options.enemySpawnTimeSeconds}
+                  onChange={(event) =>
+                    patch({
+                      enemySpawnTimeSeconds: Number(event.target.value),
+                    })
+                  }
+                />
+                {errors.enemySpawnTimeSeconds ? (
+                  <p className="field-error" role="alert">
+                    {errors.enemySpawnTimeSeconds}
+                  </p>
+                ) : null}
+              </div>
+
+              <div className="field">
+                <label htmlFor="network-scenario">Cenário de rede (MSW)</label>
+                <select
+                  id="network-scenario"
+                  data-testid="network-scenario"
+                  value={scenario}
+                  onChange={(event) => {
+                    const next = event.target.value as NetworkScenario
+                    setScenario(next)
+                    saveNetworkScenario(next)
+                  }}
+                >
+                  {NETWORK_SCENARIOS.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <button
+                type="button"
+                className="settings-reset"
+                data-testid="reset-mock"
+                onClick={() => {
+                  resetMockData()
+                  window.location.reload()
+                }}
+              >
+                Resetar dados mock
+              </button>
+
+              <p className="settings-hint" role="status">
+                Alterações salvas automaticamente
+              </p>
+            </div>
+
+            <div className="wood-actions wood-actions--options">
+              <WoodButton
+                data-testid="options-main-menu"
+                type="button"
+                onClick={() => navigate('/')}
+              >
+                Menu
+              </WoodButton>
+            </div>
+          </WoodPanel>
         </div>
 
-        <form onSubmit={handleSubmit} noValidate>
-          <div className="field">
-            <label htmlFor="session-time">Game session time (seconds)</label>
-            <input
-              id="session-time"
-              data-testid="session-time"
-              name="sessionTimeSeconds"
-              type="number"
-              min={SESSION_TIME_MIN}
-              max={SESSION_TIME_MAX}
-              value={options.sessionTimeSeconds}
-              onChange={(event) =>
-                setOptions((current) => ({
-                  ...current,
-                  sessionTimeSeconds: Number(event.target.value),
-                }))
-              }
-              aria-invalid={Boolean(errors.sessionTimeSeconds)}
-              aria-describedby="session-time-help session-time-error"
-            />
-            <p id="session-time-help" className="field-help">
-              Allowed range: {SESSION_TIME_MIN} to {SESSION_TIME_MAX}.
-            </p>
-            {errors.sessionTimeSeconds ? (
-              <p id="session-time-error" className="field-error" role="alert">
-                {errors.sessionTimeSeconds}
-              </p>
-            ) : null}
-          </div>
-
-          <div className="field">
-            <label htmlFor="spawn-time">Enemy spawn time (seconds)</label>
-            <input
-              id="spawn-time"
-              data-testid="spawn-time"
-              name="enemySpawnTimeSeconds"
-              type="number"
-              min={SPAWN_TIME_MIN}
-              max={SPAWN_TIME_MAX}
-              step="0.5"
-              value={options.enemySpawnTimeSeconds}
-              onChange={(event) =>
-                setOptions((current) => ({
-                  ...current,
-                  enemySpawnTimeSeconds: Number(event.target.value),
-                }))
-              }
-              aria-invalid={Boolean(errors.enemySpawnTimeSeconds)}
-              aria-describedby="spawn-time-help spawn-time-error"
-            />
-            <p id="spawn-time-help" className="field-help">
-              Allowed range: {SPAWN_TIME_MIN} to {SPAWN_TIME_MAX}. Must be
-              positive.
-            </p>
-            {errors.enemySpawnTimeSeconds ? (
-              <p id="spawn-time-error" className="field-error" role="alert">
-                {errors.enemySpawnTimeSeconds}
-              </p>
-            ) : null}
-          </div>
-
-          <div className="btn-row">
-            <Button data-testid="save-options" type="submit">
-              Save options
-            </Button>
-            <Button
-              data-testid="options-main-menu"
-              variant="secondary"
-              type="button"
-              onClick={() => navigate('/')}
-            >
-              Main menu
-            </Button>
-          </div>
-
-          {savedMessage ? (
-            <p className="status-box" role="status" style={{ marginTop: '1rem' }}>
-              {savedMessage}
-            </p>
-          ) : null}
-        </form>
-      </section>
+        <WoodBrand />
+      </div>
     </ScreenShell>
   )
 }

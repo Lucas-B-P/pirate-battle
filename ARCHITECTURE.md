@@ -43,11 +43,19 @@ Important separation:
 - React does not run every frame
 - Leaving the game screen destroys the Pixi app, ticker listeners and input handlers (Strict Mode safe)
 
+## Arena map
+
+Designed archipelago (`arena.ts` + `mapView.ts`), not random props:
+
+- Overlapping land blobs form NW fort peninsula, NE headland, SW beach, SE island and a mid-channel pinch
+- Visual layers: tiled water → shallow cyan → sand → grass → fort / rocks / palms on land only
+- Collision uses the same blobs; enemy spawns must be open water (`isWaterPoint`)
+
 ## Collisions and combat
 
 - Circle vs circle for ships and projectiles (`math.ts`)
-- Islands block movement and bullets
-- Player front shot = 1 projectile; broadsides = 3 parallel shots
+- Land blobs block movement and bullets
+- Player front shot = 1 projectile; broadsides = 3 parallel shots (with motion trails)
 - Chaser: chase + collide damage + self explode (no score)
 - Shooter: approach + ranged fire with cooldown
 - Match ends on death or timeout; pause freezes dt, cooldowns and spawns

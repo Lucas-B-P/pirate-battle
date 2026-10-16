@@ -15,13 +15,31 @@ export function getPlayerId(): string {
   return id
 }
 
-export function getPlayerName(): string {
-  const existing = localStorage.getItem(STORAGE_KEYS.playerName)
-  if (existing) {
-    return existing
+/** Raw saved nickname (may be empty). */
+export function loadPlayerName(): string {
+  const existing = localStorage.getItem(STORAGE_KEYS.playerName)?.trim() ?? ''
+  // Legacy auto-filled default — treat as empty so the field starts blank.
+  if (!existing || existing === 'Captain Lucas') {
+    if (existing === 'Captain Lucas') {
+      localStorage.removeItem(STORAGE_KEYS.playerName)
+    }
+    return ''
   }
 
-  const name = 'Captain Lucas'
-  localStorage.setItem(STORAGE_KEYS.playerName, name)
-  return name
+  return existing
+}
+
+/** Name used in match records / ranking. */
+export function getPlayerName(): string {
+  return loadPlayerName() || 'Pirata'
+}
+
+export function setPlayerName(name: string): void {
+  const trimmed = name.trim().slice(0, 24)
+  if (!trimmed) {
+    localStorage.removeItem(STORAGE_KEYS.playerName)
+    return
+  }
+
+  localStorage.setItem(STORAGE_KEYS.playerName, trimmed)
 }

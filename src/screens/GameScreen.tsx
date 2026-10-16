@@ -1,7 +1,8 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { createMatchRecord } from '../api/createMatchRecord'
-import { Button } from '../components/Button'
+import { assetUrl } from '../assetUrl'
+import { startGameMusic, stopGameMusic } from '../audio/uiAudio'
 import { ScreenShell } from '../components/ScreenShell'
 import { createMatchConfig } from '../config/gameConfig'
 import { GameCanvas } from '../game/GameCanvas'
@@ -23,9 +24,15 @@ export function GameScreen() {
   const [snapshot, setSnapshot] = useState<MatchSnapshot | null>(null)
   const [manualPaused, setManualPaused] = useState(false)
 
+  useEffect(() => {
+    startGameMusic()
+    return () => {
+      stopGameMusic()
+    }
+  }, [])
+
   const handleSnapshot = useCallback((next: MatchSnapshot) => {
     setSnapshot(next)
-    // In-game pause (P / blur) should also lock the React pause UI.
     if (next.paused) {
       setManualPaused(true)
     }
@@ -33,7 +40,6 @@ export function GameScreen() {
 
   const handleMatchEnd = useCallback(
     (finalSnapshot: MatchSnapshot) => {
-      // Abandoned matches never reach this callback.
       const match = createMatchRecord({
         score: finalSnapshot.score,
         durationSeconds: Math.round(finalSnapshot.durationPlayed),
@@ -57,58 +63,93 @@ export function GameScreen() {
     [matchConfig, navigate],
   )
 
-  // React pause flag is the source of truth for the HUD/overlay.
-  // Simulation pause is synced into this flag, and Resume clears it.
   const paused = manualPaused
+  const health = Math.round(snapshot?.playerHealth ?? matchConfig.playerMaxHealth)
+  const maxHealth = matchConfig.playerMaxHealth
+  const healthPct = Math.max(0, Math.min(100, (health / maxHealth) * 100))
 
   return (
-    <ScreenShell title="Match">
-      <section className="panel game-shell">
-        <div className="panel-header">
-          <div>
-            <p className="eyebrow">Combat</p>
-            <h1>Pirate Battle</h1>
-            <p className="muted">
-              Session {matchConfig.sessionTimeSeconds}s · Spawn every{' '}
-              {matchConfig.enemySpawnTimeSeconds}s
-            </p>
+    <ScreenShell title="Match" variant="game">
+      <section className="game-fullscreen">
+        <div className="sample-hud" aria-live="polite" data-testid="match-hud">
+          <div className="sample-hud__left">
+            <div className="hull-bar">
+              <img
+                className="hull-bar__icon"
+                src={assetUrl('assets/png/default/ui/hud/icon_heart.png')}
+                alt=""
+              />
+              <div className="hull-bar__track">
+                <img
+                  className="hull-bar__frame"
+                  src={assetUrl('assets/png/default/ui/hud/health_frame.png')}
+                  alt=""
+                />
+                <div className="hull-bar__fill-wrap">
+                  <div
+                    className="hull-bar__fill"
+                    style={{ width: `${healthPct}%` }}
+                  />
+                </div>
+                <strong className="hull-bar__label" data-testid="hud-health">
+                  {health} / {maxHealth}
+                </strong>
+              </div>
+            </div>
           </div>
-          <div className="btn-row">
-            <Button
-              variant="secondary"
+
+          <div className="sample-hud__right">
+            <div className="hud-plaque">
+              <img
+                className="hud-plaque__bg"
+                src={assetUrl('assets/png/default/ui/hud/counter_panel.png')}
+                alt=""
+              />
+              <img
+                className="hud-plaque__icon"
+                src={assetUrl('assets/png/default/ui/hud/icon_score.png')}
+                alt=""
+              />
+              <strong data-testid="hud-score">{snapshot?.score ?? 0}</strong>
+            </div>
+            <div className="hud-plaque">
+              <img
+                className="hud-plaque__bg"
+                src={assetUrl('assets/png/default/ui/hud/counter_panel.png')}
+                alt=""
+              />
+              <img
+                className="hud-plaque__icon"
+                src={assetUrl('assets/png/default/ui/hud/icon_time.png')}
+                alt=""
+              />
+              <strong data-testid="hud-time">
+                {formatTime(snapshot?.timeLeft ?? matchConfig.sessionTimeSeconds)}
+              </strong>
+            </div>
+            <button
+              type="button"
+              className="hud-pause"
+              aria-label={paused ? 'Continuar' : 'Pausar'}
               onClick={() => setManualPaused((value) => !value)}
             >
-              {paused ? 'Resume' : 'Pause'}
-            </Button>
-            <Button variant="ghost" onClick={() => navigate('/')}>
-              Leave match
-            </Button>
+              <img
+                src={assetUrl('assets/png/default/ui/controls/button_round_normal.png')}
+                alt=""
+                className="hud-pause__bg"
+              />
+              <img
+                src={assetUrl('assets/png/default/ui/controls/icon_pause.png')}
+                alt=""
+                className="hud-pause__icon"
+              />
+            </button>
           </div>
         </div>
 
-        <div className="hud" aria-live="polite" data-testid="match-hud">
-          <div className="hud-item">
-            <span>Score</span>
-            <strong data-testid="hud-score">{snapshot?.score ?? 0}</strong>
-          </div>
-          <div className="hud-item">
-            <span>Time</span>
-            <strong data-testid="hud-time">
-              {formatTime(snapshot?.timeLeft ?? matchConfig.sessionTimeSeconds)}
-            </strong>
-          </div>
-          <div className="hud-item">
-            <span>Hull</span>
-            <strong data-testid="hud-health">
-              {Math.round(snapshot?.playerHealth ?? matchConfig.playerMaxHealth)}/
-              {matchConfig.playerMaxHealth}
-            </strong>
-          </div>
-          <div className="hud-item">
-            <span>Status</span>
-            <strong data-testid="hud-status">{paused ? 'Paused' : 'Fighting'}</strong>
-          </div>
-        </div>
+        <span className="sr-only" data-testid="hud-status">
+          {paused ? 'Paused' : 'Fighting'}
+        </span>
 
         <GameCanvas
           config={matchConfig}
@@ -116,12 +157,9 @@ export function GameScreen() {
           onMatchEnd={handleMatchEnd}
           externalPaused={manualPaused}
           onRequestResume={() => setManualPaused(false)}
+          onRequestOptions={() => navigate('/options')}
+          onRequestMainMenu={() => navigate('/')}
         />
-
-        <p className="muted game-help">
-          Keyboard: W move · A/D rotate · Space front shot · Q/E broadsides · P
-          pause. Leaving the match abandons it without saving.
-        </p>
       </section>
     </ScreenShell>
   )

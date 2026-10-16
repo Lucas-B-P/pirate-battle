@@ -7,6 +7,20 @@ const rootDir = import.meta.dirname
 
 // Serves /assets from the challenge assets folder in dev,
 // and copies them into dist during build.
+const ASSET_MIME: Record<string, string> = {
+  '.svg': 'image/svg+xml',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.webp': 'image/webp',
+  '.gif': 'image/gif',
+  '.json': 'application/json',
+  '.wav': 'audio/wav',
+  '.mp3': 'audio/mpeg',
+  '.mpeg': 'audio/mpeg',
+  '.ogg': 'audio/ogg',
+}
+
 function gameAssetsPlugin(): Plugin {
   const assetsDir = path.resolve(rootDir, 'assets')
   const distAssetsDir = path.resolve(rootDir, 'dist/assets')
@@ -23,6 +37,9 @@ function gameAssetsPlugin(): Plugin {
           return
         }
 
+        const ext = path.extname(filePath).toLowerCase()
+        const mime = ASSET_MIME[ext]
+        if (mime) res.setHeader('Content-Type', mime)
         res.setHeader('Cache-Control', 'no-cache')
         fs.createReadStream(filePath).pipe(res)
       })

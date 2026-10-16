@@ -1,7 +1,9 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { GameScreen } from './screens/GameScreen'
+import { HistoryScreen } from './screens/HistoryScreen'
 import { MainMenuScreen } from './screens/MainMenuScreen'
 import { OptionsScreen } from './screens/OptionsScreen'
+import { RankingScreen } from './screens/RankingScreen'
 import { ResultScreen } from './screens/ResultScreen'
 
 export default function App() {
@@ -11,6 +13,8 @@ export default function App() {
     >
       <Routes>
         <Route path="/" element={<MainMenuScreen />} />
+        <Route path="/ranking" element={<RankingScreen />} />
+        <Route path="/history" element={<HistoryScreen />} />
         <Route path="/options" element={<OptionsScreen />} />
         <Route path="/game" element={<GameScreen />} />
         <Route path="/result" element={<ResultScreen />} />

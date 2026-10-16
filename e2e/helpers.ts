@@ -28,6 +28,8 @@ export async function resetAppState(page: Page, options?: ResetOptions) {
         JSON.stringify({
           sessionTimeSeconds: values.sessionTimeSeconds,
           enemySpawnTimeSeconds: values.enemySpawnTimeSeconds,
+          musicVolume: 0.45,
+          sfxVolume: 0.7,
         }),
       )
       localStorage.setItem(storage.networkScenario, values.networkScenario)
@@ -44,12 +46,12 @@ export async function resetAppState(page: Page, options?: ResetOptions) {
     },
   )
   await page.reload()
-  await expect(page.getByRole('heading', { name: 'Pirate Battle' })).toBeVisible()
+  await expect(page.getByAltText('Batalha Pirata')).toBeVisible()
 }
 
 export async function openMenu(page: Page) {
   await page.goto('/?e2e=1')
-  await expect(page.getByRole('heading', { name: 'Pirate Battle' })).toBeVisible()
+  await expect(page.getByAltText('Batalha Pirata')).toBeVisible()
 }
 
 export async function setNetworkScenario(page: Page, scenario: string) {

@@ -9,16 +9,20 @@ export function HistoryPanel() {
   const historyQuery = useMatchHistory(playerId, page)
 
   if (historyQuery.isLoading) {
-    return <div className="status-box" role="status">Loading match history...</div>
+    return (
+      <div className="status-box" role="status">
+        Carregando histórico...
+      </div>
+    )
   }
 
   if (historyQuery.isError) {
     return (
       <div className="status-box error" role="alert">
-        Could not load match history. You can still play the game.
+        Não foi possível carregar o histórico. Você ainda pode jogar.
         <div className="btn-row" style={{ marginTop: '0.75rem' }}>
           <Button variant="secondary" onClick={() => void historyQuery.refetch()}>
-            Try again
+            Tentar de novo
           </Button>
         </div>
       </div>
@@ -28,7 +32,9 @@ export function HistoryPanel() {
   const data = historyQuery.data
 
   if (!data || data.items.length === 0) {
-    return <div className="status-box empty">No matches played yet.</div>
+    return (
+      <div className="status-box empty">Nenhuma partida jogada ainda.</div>
+    )
   }
 
   return (
@@ -36,16 +42,16 @@ export function HistoryPanel() {
       <table className="table">
         <thead>
           <tr>
-            <th scope="col">Date</th>
-            <th scope="col">Score</th>
-            <th scope="col">Duration</th>
-            <th scope="col">Ended by</th>
+            <th scope="col">Data</th>
+            <th scope="col">Pontos</th>
+            <th scope="col">Duração</th>
+            <th scope="col">Fim</th>
           </tr>
         </thead>
         <tbody>
           {data.items.map((match) => (
             <tr key={match.id}>
-              <td>{new Date(match.createdAt).toLocaleString()}</td>
+              <td>{new Date(match.createdAt).toLocaleString('pt-BR')}</td>
               <td>{match.score}</td>
               <td>{match.durationSeconds}s</td>
               <td>{match.endReason}</td>
@@ -60,17 +66,17 @@ export function HistoryPanel() {
           disabled={page <= 1}
           onClick={() => setPage((current) => Math.max(1, current - 1))}
         >
-          Previous
+          Anterior
         </Button>
         <span className="muted">
-          Page {data.page} of {data.totalPages}
+          Página {data.page} de {data.totalPages}
         </span>
         <Button
           variant="ghost"
           disabled={page >= data.totalPages}
           onClick={() => setPage((current) => current + 1)}
         >
-          Next
+          Próxima
         </Button>
       </div>
     </div>

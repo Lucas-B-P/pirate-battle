@@ -1,8 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useRegisterMatch } from '../api/hooks/useRegisterMatch'
-import { Button } from '../components/Button'
+import { startMenuAmbience } from '../audio/uiAudio'
 import { ScreenShell } from '../components/ScreenShell'
+import { WoodBrand } from '../components/WoodBrand'
+import { WoodButton } from '../components/WoodButton'
+import { WoodPanel } from '../components/WoodPanel'
+import { ZoomBackdrop } from '../components/ZoomBackdrop'
 import { loadLastResult, saveLastResult } from '../storage/lastResultStorage'
 import {
   loadPendingMatch,
@@ -26,6 +30,12 @@ function statusLabel(status: RegisterStatus): string {
   }
 }
 
+function formatReason(reason?: string | null) {
+  if (reason === 'death') return 'Derrota'
+  if (reason === 'timeout') return 'Tempo'
+  return reason ?? '—'
+}
+
 export function ResultScreen() {
   const navigate = useNavigate()
   const registerMatch = useRegisterMatch()
@@ -44,9 +54,7 @@ export function ResultScreen() {
         pendingList.find((item) => item.id === matchId) ?? pendingList[0] ?? null
       const current = loadLastResult()
 
-      if (!pending || !current) {
-        return
-      }
+      if (!pending || !current) return
 
       if (current.registerStatus === 'success' && current.matchId === pending.id) {
         removePendingMatch(pending.id)
@@ -95,6 +103,10 @@ export function ResultScreen() {
   )
 
   useEffect(() => {
+    startMenuAmbience()
+  }, [])
+
+  useEffect(() => {
     if (triedAutoSave.current) return
     triedAutoSave.current = true
 
@@ -108,105 +120,69 @@ export function ResultScreen() {
     }
 
     void submitMatch(pending.id)
-    // Run once when the result screen opens / reloads.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [refreshPendingCount, submitMatch])
 
   const canRetry =
     Boolean(loadPendingMatch()) &&
     (result?.registerStatus === 'error' || result?.registerStatus === 'pending')
 
+  const mins = Math.floor((result?.durationSeconds ?? 0) / 60)
+  const secs = (result?.durationSeconds ?? 0) % 60
+  const timeLabel = `${mins.toString().padStart(2, '0')}:${secs
+    .toString()
+    .padStart(2, '0')}`
+
   return (
-    <ScreenShell title="Match result">
-      <section className="panel result-card">
-        <div className="panel-header">
-          <div>
-            <p className="eyebrow">Battle over</p>
-            <h1>Match result</h1>
-            <p className="muted">
-              {result
-                ? 'Finished matches are registered once in ranking and history.'
-                : 'No finished match yet. Abandoned battles are not saved.'}
+    <ScreenShell title="Resultado" variant="game">
+      <div className="wood-stage">
+        <ZoomBackdrop />
+
+        <div className="wood-stage__content">
+          <WoodPanel>
+            <h1 className="wood-score" style={{ fontSize: '1.55rem', color: '#f4f7fa' }}>
+              Fim de batalha
+            </h1>
+            <p className="wood-score">{result?.score ?? 0}</p>
+            <p className="wood-meta">
+              Pontos · {timeLabel} · {formatReason(result?.endReason)}
             </p>
-          </div>
-        </div>
-
-        <div className="result-grid">
-          <div className="result-stat">
-            <span className="muted">Score</span>
-            <strong>{result?.score ?? 0}</strong>
-          </div>
-          <div className="result-stat">
-            <span className="muted">Time played</span>
-            <strong>{result?.durationSeconds ?? 0}s</strong>
-          </div>
-          <div className="result-stat">
-            <span className="muted">Ended by</span>
-            <strong>{result?.endReason ?? '-'}</strong>
-          </div>
-          <div className="result-stat">
-            <span className="muted">Save status</span>
-            <strong data-testid="save-status">
+            <p className="wood-foot" data-testid="save-status">
               {statusLabel(result?.registerStatus ?? 'idle')}
-            </strong>
-          </div>
+            </p>
+
+            {result?.registerStatus === 'error' ? (
+              <p className="status-box error" role="alert">
+                Falha ao registrar. Tente de novo.
+              </p>
+            ) : null}
+
+            <div className="wood-actions">
+              {canRetry ? (
+                <WoodButton
+                  data-testid="retry-save"
+                  variant="secondary"
+                  disabled={registerMatch.isPending}
+                  onClick={() => void submitMatch(result?.matchId)}
+                >
+                  Tentar salvar
+                </WoodButton>
+              ) : null}
+              <WoodButton data-testid="play-again" onClick={() => navigate('/game')}>
+                Jogar de novo
+              </WoodButton>
+              <WoodButton data-testid="result-main-menu" onClick={() => navigate('/')}>
+                Menu
+              </WoodButton>
+            </div>
+
+            {pendingCount > 1 ? (
+              <p className="wood-foot">Pendentes na fila: {pendingCount}</p>
+            ) : null}
+          </WoodPanel>
         </div>
 
-        {result?.config ? (
-          <p className="muted">
-            Config used: {result.config.sessionTimeSeconds}s session · spawn every{' '}
-            {result.config.enemySpawnTimeSeconds}s
-          </p>
-        ) : null}
-
-        {pendingCount > 1 ? (
-          <p className="muted">Pending saves in queue: {pendingCount}</p>
-        ) : null}
-
-        {result?.registerStatus === 'error' ? (
-          <div className="status-box error" role="alert">
-            Could not register this match. You can retry now or play another
-            match while pending saves are kept locally.
-            {result.errorMessage ? <p>{result.errorMessage}</p> : null}
-          </div>
-        ) : null}
-
-        {result?.registerStatus === 'success' ? (
-          <div className="status-box" role="status">
-            Match registered. Ranking and Match History will show this entry.
-          </div>
-        ) : null}
-
-        {result?.registerStatus === 'pending' ||
-        result?.registerStatus === 'saving' ? (
-          <div className="status-box" role="status">
-            Saving match record...
-          </div>
-        ) : null}
-
-        <div className="btn-row" style={{ marginTop: '1rem' }}>
-          {canRetry ? (
-            <Button
-              data-testid="retry-save"
-              variant="secondary"
-              disabled={registerMatch.isPending}
-              onClick={() => void submitMatch(result?.matchId)}
-            >
-              Retry save
-            </Button>
-          ) : null}
-          <Button data-testid="play-again" onClick={() => navigate('/game')}>
-            Play again
-          </Button>
-          <Button
-            data-testid="result-main-menu"
-            variant="secondary"
-            onClick={() => navigate('/')}
-          >
-            Main menu
-          </Button>
-        </div>
-      </section>
+        <WoodBrand />
+      </div>
     </ScreenShell>
   )
 }

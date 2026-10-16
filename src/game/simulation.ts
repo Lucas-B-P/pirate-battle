@@ -3,7 +3,10 @@ import {
   ARENA_HEIGHT,
   ARENA_ISLANDS,
   ARENA_WIDTH,
+  PLAYER_SPAWN,
+  TILE_SIZE,
   clampToArena,
+  isWaterPoint,
 } from './arena'
 import type { InputState } from './input'
 import {
@@ -81,11 +84,11 @@ function spawnProjectile(
 
   const projectile: ProjectileEntity = {
     id: createId('bullet'),
-    x: options.x + dir.x * 28 + side.x * offset,
-    y: options.y + dir.y * 28 + side.y * offset,
+    x: options.x + dir.x * 65 + side.x * offset,
+    y: options.y + dir.y * 65 + side.y * offset,
     vx: dir.x * options.speed,
     vy: dir.y * options.speed,
-    radius: 6,
+      radius: 18,
     damage: options.damage,
     life: options.life,
     owner: options.owner,
@@ -99,16 +102,19 @@ function firePlayerWeapon(
   state: SimulationState,
   config: GameConfig,
   side: FireSide,
+  aimRotation?: number | null,
 ) {
   const player = state.player
 
   if (side === 'front') {
     if (state.frontCooldown > 0) return
     state.frontCooldown = config.playerFrontCooldownSeconds
+    const rotation =
+      typeof aimRotation === 'number' ? aimRotation : player.rotation
     spawnProjectile(state, {
       x: player.x,
       y: player.y,
-      rotation: player.rotation,
+      rotation,
       speed: config.projectileSpeed,
       damage: config.projectileDamage,
       life: config.projectileLifetimeSeconds,
@@ -117,11 +123,12 @@ function firePlayerWeapon(
     return
   }
 
+  // Q = left broadside (port), E = right broadside (starboard)
   if (side === 'left') {
     if (state.leftCooldown > 0) return
     state.leftCooldown = config.playerSideCooldownSeconds
     const rotation = player.rotation - Math.PI / 2
-    for (const offset of [-18, 0, 18]) {
+    for (const offset of [-65, 0, 65]) {
       spawnProjectile(state, {
         x: player.x,
         y: player.y,
@@ -139,7 +146,7 @@ function firePlayerWeapon(
   if (state.rightCooldown > 0) return
   state.rightCooldown = config.playerSideCooldownSeconds
   const rotation = player.rotation + Math.PI / 2
-  for (const offset of [-18, 0, 18]) {
+  for (const offset of [-65, 0, 65]) {
     spawnProjectile(state, {
       x: player.x,
       y: player.y,
@@ -164,14 +171,20 @@ function addExplosion(state: SimulationState, x: number, y: number) {
   state.explosions.push(explosion)
 }
 
-function findSpawnPoint(state: SimulationState): { x: number; y: number } | null {
-  for (let attempt = 0; attempt < 30; attempt += 1) {
-    const x = 80 + random() * (ARENA_WIDTH - 160)
-    const y = 80 + random() * (ARENA_HEIGHT - 160)
-    const farFromPlayer = distance({ x, y }, state.player) > 220
-    const freeOfIsland = !hitsIsland(x, y, 26, state)
+/** Keep spawns well away from the player (map is TILE_SIZE 640 / 10×). */
+const MIN_ENEMY_SPAWN_DISTANCE = TILE_SIZE * 5
+const SPAWN_EDGE_MARGIN = TILE_SIZE * 0.4
+const SPAWN_WATER_CLEARANCE = 220
 
-    if (farFromPlayer && freeOfIsland) {
+function findSpawnPoint(state: SimulationState): { x: number; y: number } | null {
+  for (let attempt = 0; attempt < 80; attempt += 1) {
+    const x = SPAWN_EDGE_MARGIN + random() * (ARENA_WIDTH - SPAWN_EDGE_MARGIN * 2)
+    const y = SPAWN_EDGE_MARGIN + random() * (ARENA_HEIGHT - SPAWN_EDGE_MARGIN * 2)
+    const farFromPlayer =
+      distance({ x, y }, state.player) > MIN_ENEMY_SPAWN_DISTANCE
+    const inChannel = isWaterPoint(x, y, SPAWN_WATER_CLEARANCE)
+
+    if (farFromPlayer && inChannel) {
       return { x, y }
     }
   }
@@ -192,7 +205,7 @@ function spawnEnemy(state: SimulationState, config: GameConfig) {
     x: point.x,
     y: point.y,
     rotation: angleTowards(point, state.player),
-    radius: 24,
+    radius: 238,
     health: isChaser ? config.chaserHealth : config.shooterHealth,
     maxHealth: isChaser ? config.chaserHealth : config.shooterHealth,
     alive: true,
@@ -228,7 +241,12 @@ function updatePlayer(
     )
   }
 
-  if (input.fireFront) firePlayerWeapon(state, config, 'front')
+  const aimRotation =
+    input.aimX !== null && input.aimY !== null
+      ? angleTowards(player, { x: input.aimX, y: input.aimY })
+      : null
+
+  if (input.fireFront) firePlayerWeapon(state, config, 'front', aimRotation)
   if (input.fireLeft) firePlayerWeapon(state, config, 'left')
   if (input.fireRight) firePlayerWeapon(state, config, 'right')
 }
@@ -343,10 +361,10 @@ export function createSimulation(config: GameConfig): SimulationState {
   return {
     player: {
       id: 'player',
-      x: ARENA_WIDTH * 0.5,
-      y: ARENA_HEIGHT * 0.72,
-      rotation: 0,
-      radius: 26,
+      x: PLAYER_SPAWN.x,
+      y: PLAYER_SPAWN.y,
+      rotation: -Math.PI / 2,
+      radius: 252,
       health: config.playerMaxHealth,
       maxHealth: config.playerMaxHealth,
       alive: true,

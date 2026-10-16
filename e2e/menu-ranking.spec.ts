@@ -11,18 +11,21 @@ test.describe('Menu ranking and history', () => {
       networkScenario: 'success',
     })
 
+    await page.getByRole('button', { name: 'Ranking' }).click()
     await expect(page.getByRole('tab', { name: 'Ranking' })).toBeVisible()
     await expect(page.getByRole('columnheader', { name: 'Player' })).toBeVisible()
     await expect(page.getByText('Anne Bonny')).toBeVisible()
 
     await setNetworkScenario(page, 'empty')
-    await expect(page.getByText(/No ranking entries/i)).toBeVisible()
+    await page.getByRole('button', { name: 'Ranking' }).click()
+    await expect(page.getByText(/Sem entradas no ranking/i)).toBeVisible()
 
     await setNetworkScenario(page, 'error')
-    await expect(page.getByRole('alert')).toContainText('Could not load ranking')
+    await page.getByRole('button', { name: 'Ranking' }).click()
+    await expect(page.getByRole('alert')).toContainText('Não foi possível carregar o ranking')
 
     await page.getByRole('tab', { name: 'Match History' }).click()
-    await expect(page.getByRole('alert')).toContainText('Could not load match history')
+    await expect(page.getByRole('alert')).toContainText('Não foi possível carregar o histórico')
   })
 
   test('visual regression of main menu', async ({ page }) => {
@@ -33,7 +36,7 @@ test.describe('Menu ranking and history', () => {
       enemySpawnTimeSeconds: 3,
       networkScenario: 'success',
     })
-    await expect(page.getByRole('heading', { name: 'Pirate Battle' })).toBeVisible()
+    await expect(page.getByAltText('Batalha Pirata')).toBeVisible()
     await expect(page).toHaveScreenshot('main-menu.png', {
       fullPage: true,
       animations: 'disabled',

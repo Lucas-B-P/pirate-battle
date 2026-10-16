@@ -11,7 +11,8 @@ test.describe('Navigation and abandon', () => {
 
     await page.getByTestId('play-button').click()
     await expect(page).toHaveURL(/\/game/)
-    await page.getByRole('button', { name: 'Leave match' }).click()
+    await page.keyboard.press('KeyP')
+    await page.getByRole('button', { name: 'Menu' }).click()
     await expect(page).toHaveURL(/\/$/)
 
     const pending = await page.evaluate(() =>

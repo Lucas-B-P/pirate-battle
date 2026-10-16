@@ -2,8 +2,10 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import App from './App'
+import { bootMenuAudio } from './audio/uiAudio'
 import './styles/global.css'
 import './styles/screens.css'
+import './styles/wood-ui.css'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -30,6 +32,9 @@ const rootElement = document.getElementById('root')
 if (!rootElement) {
   throw new Error('Root element #root was not found')
 }
+
+// Start menu theme as early as the browser allows (no menu click required).
+bootMenuAudio()
 
 void enableMocking().then(() => {
   createRoot(rootElement).render(
