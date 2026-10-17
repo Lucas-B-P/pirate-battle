@@ -85,6 +85,7 @@ export function MainMenuScreen() {
                 <p className="wood-tag">Hoist anchor. Take command.</p>
                 <form
                   className="wood-nick"
+                  autoComplete="off"
                   onSubmit={(event) => {
                     event.preventDefault()
                     handlePlay()
@@ -110,7 +111,9 @@ export function MainMenuScreen() {
                       data-testid="player-nickname"
                       type="text"
                       name="nickname"
-                      autoComplete="nickname"
+                      autoComplete="off"
+                      autoCorrect="off"
+                      spellCheck={false}
                       maxLength={24}
                       placeholder="Your pirate name"
                       value={nickname}

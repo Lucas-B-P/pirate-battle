@@ -519,18 +519,18 @@
   filter: drop-shadow(0 8px 12px rgba(0, 0, 0, 0.42));
 }
 
-.wood-nick__frame:has(:focus-visible) {
-  outline: 2px solid #f0d27a;
-  outline-offset: 3px;
-}
-
 .wood-nick__input {
   width: calc(100% - clamp(2.4rem, 10vw, 3.4rem));
   height: 70%;
   border: 0;
-  outline: none;
+  outline: none !important;
+  box-shadow: none;
+  appearance: none;
+  -webkit-appearance: none;
   background: transparent;
+  background-color: transparent;
   color: #2a1a08;
+  caret-color: #2a1a08;
   font-family: var(--font-display);
   font-weight: 800;
   letter-spacing: 0.04em;
@@ -547,8 +547,23 @@
   font-weight: 700;
 }
 
-.wood-nick__input:focus {
+.wood-nick__input:focus,
+.wood-nick__input:focus-visible {
   outline: none;
+  box-shadow: none;
+}
+
+/* Keep the wood plate visible under Chrome/Edge autofill fill. */
+.wood-nick__input:-webkit-autofill,
+.wood-nick__input:-webkit-autofill:hover,
+.wood-nick__input:-webkit-autofill:focus,
+.wood-nick__input:-webkit-autofill:active {
+  -webkit-text-fill-color: #2a1a08;
+  caret-color: #2a1a08;
+  box-shadow: 0 0 0 1000px transparent inset;
+  transition: background-color 99999s ease-in-out 0s;
+  background-color: transparent !important;
+  background-image: none !important;
 }
 
 .wood-nick__error {
