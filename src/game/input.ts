@@ -41,8 +41,37 @@ export function setCanvasFireHeld(isDown: boolean) {
   canvasFireHeld = isDown
 }
 
-export function createInputController() {
+function isFormField(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false
+  const tag = target.tagName
+  return (
+    tag === 'INPUT' ||
+    tag === 'TEXTAREA' ||
+    tag === 'SELECT' ||
+    target.isContentEditable ||
+    Boolean(target.closest('input, textarea, select, [contenteditable="true"]'))
+  )
+}
+
+const idleInput: InputState = {
+  forward: false,
+  rotateLeft: false,
+  rotateRight: false,
+  fireFront: false,
+  fireLeft: false,
+  fireRight: false,
+  pausePressed: false,
+  aimX: null,
+  aimY: null,
+}
+
+export function createInputController(isGameplayActive: () => boolean = () => true) {
   function onKeyDown(event: KeyboardEvent) {
+    if (!isGameplayActive() || isFormField(event.target)) return
+
+    const onButton = event.target instanceof HTMLElement && Boolean(event.target.closest('button, a, [role="dialog"]'))
+    if (onButton) return
+
     keys.add(event.code)
 
     if (
@@ -80,6 +109,14 @@ export function createInputController() {
   }
 
   function read(): InputState {
+    if (!isGameplayActive()) {
+      keys.clear()
+      virtualKeys.clear()
+      canvasFireHeld = false
+      pauseWasDown = false
+      return { ...idleInput, aimX, aimY }
+    }
+
     const pauseDown =
       isKeyDown('KeyP') || isKeyDown('Escape') || isKeyDown('Pause')
     const pausePressed = pauseDown && !pauseWasDown
@@ -91,7 +128,6 @@ export function createInputController() {
       rotateRight: isKeyDown('KeyD') || isKeyDown('ArrowRight'),
       fireFront:
         isKeyDown('Space') || isKeyDown('KeyJ') || canvasFireHeld,
-      // Q = port (left of ship), E = starboard (right of ship)
       fireLeft: isKeyDown('KeyQ') || isKeyDown('KeyK'),
       fireRight: isKeyDown('KeyE') || isKeyDown('KeyL'),
       pausePressed,

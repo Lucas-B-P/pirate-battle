@@ -1,10 +1,10 @@
-/**
- * Central gameplay settings.
- * Balance changes should happen here, not inside game systems.
- */
+export type EnemySpawnPattern = 'alternate'
+
 export type GameConfig = {
   sessionTimeSeconds: number
   enemySpawnTimeSeconds: number
+  /** How enemy types are chosen across successive spawns. */
+  enemySpawnPattern: EnemySpawnPattern
   playerMaxHealth: number
   playerMoveSpeed: number
   playerRotationSpeed: number
@@ -29,10 +29,10 @@ export const SESSION_TIME_MAX = 180
 export const SPAWN_TIME_MIN = 1
 export const SPAWN_TIME_MAX = 10
 
-/** Speeds / ranges scaled for the 10× world (TILE_SIZE 640). */
 export const DEFAULT_GAME_CONFIG: GameConfig = {
   sessionTimeSeconds: 90,
   enemySpawnTimeSeconds: 3,
+  enemySpawnPattern: 'alternate',
   playerMaxHealth: 100,
   playerMoveSpeed: 1800,
   playerRotationSpeed: 2.4,
@@ -52,15 +52,11 @@ export const DEFAULT_GAME_CONFIG: GameConfig = {
   shooterProjectileDamage: 15,
 }
 
-/** Options the player can change in the Options screen. */
 export type PlayerOptions = {
   sessionTimeSeconds: number
   enemySpawnTimeSeconds: number
-  /** Menu music volume from 0 to 1. */
   musicVolume: number
-  /** In-match music volume from 0 to 1. */
   gameMusicVolume: number
-  /** UI / SFX volume from 0 to 1. */
   sfxVolume: number
 }
 

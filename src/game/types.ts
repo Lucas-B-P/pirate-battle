@@ -28,6 +28,7 @@ export type ShipEntity = {
 export type EnemyEntity = ShipEntity & {
   type: EnemyType
   cooldown: number
+  skin: number
 }
 
 export type ProjectileEntity = {
@@ -70,6 +71,8 @@ export type SimulationState = {
   islands: Island[]
   spawnTimer: number
   nextEnemyIsChaser: boolean
+  nextChaserSkin: number
+  nextShooterSkin: number
   timeLeft: number
   score: number
   paused: boolean

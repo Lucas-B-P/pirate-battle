@@ -40,7 +40,8 @@ Important separation:
 
 - `simulation.ts` never imports Pixi
 - `renderer.ts` only draws; it never decides damage or score
-- React does not run every frame
+- React does not run every frame. The HUD snapshot is published when score, hull, pause, end, or the displayed second changes — not on every simulation tick
+- Keyboard input is attached on the match screen, but movement and firing are ignored unless gameplay is active (assets ready, pause dialog closed, focus not in a form field or button)
 - Leaving the game screen destroys the Pixi app, ticker listeners and input handlers (Strict Mode safe)
 
 ## Arena map

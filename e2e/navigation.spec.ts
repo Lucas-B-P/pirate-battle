@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { resetAppState } from './helpers'
+import { resetAppState, startMatch, stepSeconds } from './helpers'
 
 test.describe('Navigation and abandon', () => {
   test('can leave a match without registering it', async ({ page }) => {
@@ -9,9 +9,11 @@ test.describe('Navigation and abandon', () => {
       networkScenario: 'success',
     })
 
-    await page.getByTestId('play-button').click()
-    await expect(page).toHaveURL(/\/game/)
-    await page.keyboard.press('KeyP')
+    await startMatch(page)
+    await page.keyboard.down('KeyP')
+    await stepSeconds(page, 0.05)
+    await page.keyboard.up('KeyP')
+    await expect(page.getByTestId('hud-status')).toHaveText('Paused')
     await page.getByRole('button', { name: 'Menu' }).click()
     await expect(page).toHaveURL(/\/$/)
 

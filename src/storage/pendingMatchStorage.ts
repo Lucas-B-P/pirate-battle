@@ -10,7 +10,6 @@ function readQueue(): MatchRecord[] {
 
     const parsed: unknown = JSON.parse(raw)
     if (!Array.isArray(parsed)) {
-      // Old single-object format.
       return [parsed as MatchRecord]
     }
 

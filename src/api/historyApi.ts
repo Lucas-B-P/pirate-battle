@@ -4,7 +4,7 @@ import { apiClient } from './client'
 export async function fetchMatchHistory(
   playerId: string,
   page: number,
-  pageSize = 5,
+  pageSize = 2,
 ): Promise<PaginatedResponse<MatchRecord>> {
   const response = await apiClient.get<PaginatedResponse<MatchRecord>>(
     `/history/${playerId}`,

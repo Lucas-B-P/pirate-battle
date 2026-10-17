@@ -31,8 +31,8 @@ function statusLabel(status: RegisterStatus): string {
 }
 
 function formatReason(reason?: string | null) {
-  if (reason === 'death') return 'Derrota'
-  if (reason === 'timeout') return 'Tempo'
+  if (reason === 'death') return 'Defeat'
+  if (reason === 'timeout') return 'Time out'
   return reason ?? '—'
 }
 
@@ -133,18 +133,18 @@ export function ResultScreen() {
     .padStart(2, '0')}`
 
   return (
-    <ScreenShell title="Resultado" variant="game">
+    <ScreenShell title="Result" variant="game">
       <div className="wood-stage">
         <ZoomBackdrop />
 
         <div className="wood-stage__content">
           <WoodPanel>
             <h1 className="wood-score" style={{ fontSize: '1.55rem', color: '#f4f7fa' }}>
-              Fim de batalha
+              Battle over
             </h1>
             <p className="wood-score">{result?.score ?? 0}</p>
             <p className="wood-meta">
-              Pontos · {timeLabel} · {formatReason(result?.endReason)}
+              Points · {timeLabel} · {formatReason(result?.endReason)}
             </p>
             <p className="wood-foot" data-testid="save-status">
               {statusLabel(result?.registerStatus ?? 'idle')}
@@ -152,7 +152,7 @@ export function ResultScreen() {
 
             {result?.registerStatus === 'error' ? (
               <p className="status-box error" role="alert">
-                Falha ao registrar. Tente de novo.
+                Failed to register. Please try again.
               </p>
             ) : null}
 
@@ -164,11 +164,11 @@ export function ResultScreen() {
                   disabled={registerMatch.isPending}
                   onClick={() => void submitMatch(result?.matchId)}
                 >
-                  Tentar salvar
+                  Retry save
                 </WoodButton>
               ) : null}
               <WoodButton data-testid="play-again" onClick={() => navigate('/game')}>
-                Jogar de novo
+                Play again
               </WoodButton>
               <WoodButton data-testid="result-main-menu" onClick={() => navigate('/')}>
                 Menu
@@ -176,7 +176,7 @@ export function ResultScreen() {
             </div>
 
             {pendingCount > 1 ? (
-              <p className="wood-foot">Pendentes na fila: {pendingCount}</p>
+              <p className="wood-foot">Pending in queue: {pendingCount}</p>
             ) : null}
           </WoodPanel>
         </div>

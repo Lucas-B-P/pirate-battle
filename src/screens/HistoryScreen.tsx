@@ -10,20 +10,20 @@ export function HistoryScreen() {
   const navigate = useNavigate()
 
   return (
-    <ScreenShell title="Histórico" variant="game">
+    <ScreenShell title="Match History" variant="game">
       <div className="wood-stage">
         <ZoomBackdrop />
         <div className="wood-stage__content wood-stage__content--wide">
           <WoodPanel wide>
-            <p className="wood-tag">Suas viagens</p>
+            <p className="wood-tag">Your voyages</p>
             <h1 className="wood-score" style={{ fontSize: '2rem' }}>
-              Histórico
+              Match History
             </h1>
             <div className="wood-panel-scroll">
               <HistoryPanel />
             </div>
             <WoodButton variant="secondary" onClick={() => navigate('/')}>
-              Voltar
+              Back
             </WoodButton>
           </WoodPanel>
         </div>

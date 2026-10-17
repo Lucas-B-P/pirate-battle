@@ -5,7 +5,10 @@ import {
   getAllMatches,
   saveConfirmedMatch,
 } from './data'
-import { loadNetworkScenario } from './networkScenario'
+import { nextRankingSerial, resetHandlerState } from './handlerState'
+import { loadNetworkScenario, type NetworkScenario } from './networkScenario'
+
+export { resetHandlerState }
 
 const API_URL = '/api'
 
@@ -15,7 +18,6 @@ function sortByScore(matches: MatchRecord[]): MatchRecord[] {
       return b.score - a.score
     }
 
-    // Deterministic tie-break: earlier match wins.
     return a.createdAt.localeCompare(b.createdAt)
   })
 }
@@ -37,28 +39,50 @@ function paginate<T>(items: T[], page: number, pageSize: number): PaginatedRespo
   }
 }
 
-async function applyScenarioDelay(): Promise<void> {
-  const scenario = loadNetworkScenario()
+async function applyScenarioDelay(
+  scenario: NetworkScenario,
+  options?: { ranking?: boolean },
+): Promise<Response | null> {
+  if (scenario === 'offline') {
+    return HttpResponse.error()
+  }
 
   if (scenario === 'slow') {
-    await delay(1200)
-    return
+    await delay(800 + Math.floor(Math.random() * 1200))
+    return null
+  }
+
+  if (scenario === 'out-of-order' && options?.ranking) {
+    const serial = nextRankingSerial()
+    // Odd (older) requests wait longer so a later request can finish first.
+    await delay(serial % 2 === 1 ? 1800 : 120)
+    return null
   }
 
   await delay(200)
+  return null
+}
+
+function failureResponse(scenario: NetworkScenario, message: string) {
+  if (scenario === 'client-error') {
+    return HttpResponse.json({ message }, { status: 400 })
+  }
+
+  if (scenario === 'error') {
+    return HttpResponse.json({ message }, { status: 500 })
+  }
+
+  return null
 }
 
 export const handlers = [
   http.get(`${API_URL}/ranking`, async ({ request }) => {
     const scenario = loadNetworkScenario()
-    await applyScenarioDelay()
+    const early = await applyScenarioDelay(scenario, { ranking: true })
+    if (early) return early
 
-    if (scenario === 'error') {
-      return HttpResponse.json(
-        { message: 'Failed to load ranking' },
-        { status: 500 },
-      )
-    }
+    const failed = failureResponse(scenario, 'Failed to load ranking')
+    if (failed) return failed
 
     const url = new URL(request.url)
     const page = Number(url.searchParams.get('page') ?? '1')
@@ -85,14 +109,11 @@ export const handlers = [
 
   http.get(`${API_URL}/history/:playerId`, async ({ params, request }) => {
     const scenario = loadNetworkScenario()
-    await applyScenarioDelay()
+    const early = await applyScenarioDelay(scenario)
+    if (early) return early
 
-    if (scenario === 'error') {
-      return HttpResponse.json(
-        { message: 'Failed to load match history' },
-        { status: 500 },
-      )
-    }
+    const failed = failureResponse(scenario, 'Failed to load match history')
+    if (failed) return failed
 
     const url = new URL(request.url)
     const page = Number(url.searchParams.get('page') ?? '1')
@@ -112,7 +133,8 @@ export const handlers = [
 
   http.post(`${API_URL}/history`, async ({ request }) => {
     const scenario = loadNetworkScenario()
-    await applyScenarioDelay()
+    const early = await applyScenarioDelay(scenario)
+    if (early) return early
 
     if (scenario === 'timeout-on-register') {
       await delay(4000)
@@ -122,18 +144,13 @@ export const handlers = [
       )
     }
 
-    if (scenario === 'error') {
-      return HttpResponse.json(
-        { message: 'Failed to register match' },
-        { status: 500 },
-      )
-    }
+    const failed = failureResponse(scenario, 'Failed to register match')
+    if (failed) return failed
 
     const body = (await request.json()) as MatchRecord
     const existing = findMatchById(body.id)
 
     if (existing) {
-      // Idempotent: repeated submit returns the same record.
       return HttpResponse.json(existing, { status: 200 })
     }
 

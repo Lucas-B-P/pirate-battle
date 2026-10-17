@@ -34,26 +34,30 @@ Optional:
 
 Combat tests use `?e2e=1` and `window.__pirateBattleTest` (seeded RNG + `step(dt)`).
 
-## Controles
+## Controls
 
-| Ação | Teclado | Toque |
+| Action | Keyboard | Touch |
 | --- | --- | --- |
-| Avançar | `W` / `↑` | ▲ |
-| Girar | `A` `D` | ◀ ▶ |
-| Canhão (mira no mouse) | `Espaço` / clique | Fire |
-| Lateral esquerda | `Q` | L |
-| Lateral direita | `E` | R |
-| Pausar | `P` / `Esc` | Pause |
+| Forward | `W` / `↑` | ▲ |
+| Turn | `A` `D` | ◀ ▶ |
+| Front cannon (aim with mouse) | `Space` / click | Fire |
+| Port broadside | `Q` | L |
+| Starboard broadside | `E` | R |
+| Pause | `P` / `Esc` | Pause |
 
-## Mapa com tiles
+Supported mobile orientation: **landscape** (see `manifest.webmanifest`). In portrait, or when the window resizes, the HUD and touch pads shrink and stay on-screen. Match rules do not change with viewport size.
 
-Edite o grid ASCII em:
+On touch, the left cluster moves/turns and the right cluster fires. On desktop with a fine pointer, movement pads are hidden; keyboard and arena click still work. Game keys are captured only while gameplay is active.
 
-`src/game/maps/channel.level.ts`
+UI fonts: Figtree and Syne (SIL OFL) under `src/fonts/`.
 
-Instruções: `src/game/maps/README.md`
+## Tile map
 
-Tiles: `assets/png/default/tiles/` e sheet em `assets/tilesheet/`.
+Edit the ASCII grid in `src/game/maps/channel.level.ts`.
+
+Notes: `src/game/maps/README.md`
+
+Tiles: `assets/png/default/tiles/` and sheet under `assets/tilesheet/`.
 
 ## Options (persisted in `localStorage`)
 
@@ -64,22 +68,26 @@ Each match snapshots the options at start; later edits apply to the next match.
 
 ## Network scenarios (MSW)
 
-On the main menu:
+On **Options** → Network scenario:
 
 - Success
 - Empty lists
-- Slow network
-- API error
+- Slow / variable latency
+- API error (5xx)
+- Client error (4xx)
+- Connection failure
+- Out-of-order responses
 - Timeout on register
 
-**Reset mock data** clears confirmed fixtures and pending mock records.
+**Reset mock data** clears confirmed matches, pending saves, and MSW request counters.
 
 How to reproduce failures:
 
-1. Open Main Menu → pick a scenario (for example **Timeout on register**).
+1. Open Options → pick a scenario (for example **Timeout on register**).
 2. Finish a match and watch the Result screen keep a pending save.
 3. Refresh and use **Retry** — the same match id is sent again (no duplicates).
 4. Switch back to **Success** and confirm Ranking / Match History update.
+5. Use **Out-of-order responses** while paging Ranking to verify stale replies do not replace newer data.
 
 Mocks run in `npm run dev`, Playwright, and the **published** build via `/mockServiceWorker.js`.
 

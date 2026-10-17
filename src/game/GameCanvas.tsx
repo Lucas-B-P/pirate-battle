@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { assetUrl } from '../assetUrl'
 import { WoodButton } from '../components/WoodButton'
 import { WoodPanel } from '../components/WoodPanel'
 import type { GameConfig } from '../config/gameConfig'
@@ -13,6 +14,7 @@ import {
 import { createSeededRandom, setRandomSource } from './random'
 import { createGameRenderer } from './renderer'
 import {
+  applyTestPlayerHit,
   createSimulation,
   getSnapshot,
   setPaused,
@@ -30,18 +32,57 @@ type GameCanvasProps = {
   onRequestResume: () => void
   onRequestOptions?: () => void
   onRequestMainMenu?: () => void
+  playerSkin: number
+}
+
+function TouchPad({
+  code,
+  label,
+  hint,
+  icon,
+  className = '',
+}: {
+  code: string
+  label: string
+  hint: string
+  icon: string
+  className?: string
+}) {
+  return (
+    <button
+      type="button"
+      className={`touch-btn ${className}`.trim()}
+      data-key={code}
+      aria-label={label}
+      tabIndex={-1}
+    >
+      <span className="touch-btn__key" aria-hidden="true">
+        {hint}
+      </span>
+      <img
+        className="touch-btn__bg"
+        src={assetUrl('assets/png/default/ui/controls/button_round_normal.png')}
+        alt=""
+      />
+      <img className="touch-btn__icon" src={assetUrl(icon)} alt="" />
+    </button>
+  )
 }
 
 function bindTouchButton(button: HTMLButtonElement) {
   const code = button.dataset.key
   if (!code) return () => {}
 
-  const press = (event: Event) => {
+  const press = (event: PointerEvent) => {
+    if (event.button !== 0) return
     event.preventDefault()
+    button.setPointerCapture(event.pointerId)
     setVirtualKey(code, true)
   }
-  const release = (event: Event) => {
-    event.preventDefault()
+  const release = (event: PointerEvent) => {
+    if (event.type === 'pointerleave' && button.hasPointerCapture(event.pointerId)) {
+      return
+    }
     setVirtualKey(code, false)
   }
 
@@ -67,9 +108,11 @@ export function GameCanvas({
   onRequestResume,
   onRequestOptions,
   onRequestMainMenu,
+  playerSkin,
 }: GameCanvasProps) {
   const hostRef = useRef<HTMLDivElement | null>(null)
   const touchRef = useRef<HTMLDivElement | null>(null)
+  const dialogRef = useRef<HTMLDivElement | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadProgress, setLoadProgress] = useState(0)
   const [loadError, setLoadError] = useState('')
@@ -77,7 +120,13 @@ export function GameCanvas({
 
   const onSnapshotRef = useRef(onSnapshot)
   const onMatchEndRef = useRef(onMatchEnd)
+  const onRequestResumeRef = useRef(onRequestResume)
   const externalPausedRef = useRef(externalPaused)
+
+  useLayoutEffect(() => {
+    externalPausedRef.current = externalPaused
+    onRequestResumeRef.current = onRequestResume
+  }, [externalPaused, onRequestResume])
 
   useEffect(() => {
     onSnapshotRef.current = onSnapshot
@@ -88,17 +137,64 @@ export function GameCanvas({
   }, [onMatchEnd])
 
   useEffect(() => {
-    externalPausedRef.current = externalPaused
-  }, [externalPaused])
+    if (!loadError) return
+    document.getElementById('retry-assets')?.focus()
+  }, [loadError])
+
+  useEffect(() => {
+    if (!externalPaused || loading || loadError) return
+    const dialog = dialogRef.current
+    if (!dialog) return
+
+    const previouslyFocused =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null
+
+    const focusable = () =>
+      [...dialog.querySelectorAll<HTMLElement>('button:not([disabled]), [href], input, select, textarea')]
+
+    focusable()[0]?.focus()
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        onRequestResumeRef.current()
+        return
+      }
+      if (event.key !== 'Tab') return
+      const items = focusable()
+      if (items.length === 0) return
+      const first = items[0]
+      const last = items[items.length - 1]
+      if (!first || !last) return
+      const active = document.activeElement
+      if (event.shiftKey && (active === first || !dialog.contains(active))) {
+        event.preventDefault()
+        last.focus()
+      } else if (!event.shiftKey && active === last) {
+        event.preventDefault()
+        first.focus()
+      }
+    }
+
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('keydown', onKeyDown)
+      if (previouslyFocused && document.contains(previouslyFocused)) {
+        previouslyFocused.focus()
+      }
+    }
+  }, [externalPaused, loading, loadError])
 
   useEffect(() => {
     if (!hostRef.current) return
-    // Captured for nested closures (TS does not keep null narrowing inside them).
     const arenaHost: HTMLDivElement = hostRef.current
 
     let disposed = false
+    let sessionReady = false
     let renderer: Awaited<ReturnType<typeof createGameRenderer>> | null = null
-    const input = createInputController()
+    const input = createInputController(
+      () => sessionReady && !externalPausedRef.current,
+    )
     const audio = createGameAudio()
     const state = createSimulation(config)
     const soundTracker = createSoundTracker(state)
@@ -133,7 +229,7 @@ export function GameCanvas({
         if (disposed) return
 
         if (!hostRef.current) return
-        renderer = await createGameRenderer(hostRef.current, textures)
+        renderer = await createGameRenderer(hostRef.current, textures, playerSkin)
         if (disposed) {
           renderer.destroy()
           return
@@ -165,7 +261,6 @@ export function GameCanvas({
 
         const onCanvasPointerDown = (event: PointerEvent) => {
           if (event.button !== 0) return
-          // Touch pads have their own handlers; ignore those bubbles.
           if ((event.target as HTMLElement | null)?.closest?.('.touch-controls')) {
             return
           }
@@ -193,6 +288,8 @@ export function GameCanvas({
         const onVisibility = () => {
           if (document.hidden) {
             setPaused(state, true)
+            input.clearHeldKeys()
+            setCanvasFireHeld(false)
             onSnapshotRef.current(getSnapshot(state))
           }
         }
@@ -207,14 +304,17 @@ export function GameCanvas({
         document.addEventListener('visibilitychange', onVisibility)
         window.addEventListener('blur', onBlur)
 
+        const timeBucket = (seconds: number) => Math.ceil(Math.max(0, seconds))
+
         const publishSnapshot = () => {
           const snapshot = getSnapshot(state)
           const changed =
-            snapshot.timeLeft !== lastSnapshot.timeLeft ||
+            timeBucket(snapshot.timeLeft) !== timeBucket(lastSnapshot.timeLeft) ||
             snapshot.score !== lastSnapshot.score ||
             snapshot.playerHealth !== lastSnapshot.playerHealth ||
             snapshot.paused !== lastSnapshot.paused ||
-            snapshot.ended !== lastSnapshot.ended
+            snapshot.ended !== lastSnapshot.ended ||
+            snapshot.endReason !== lastSnapshot.endReason
 
           if (changed) {
             lastSnapshot = snapshot
@@ -241,7 +341,6 @@ export function GameCanvas({
           if (externalPausedRef.current) {
             setPaused(state, true)
           } else if (wasExternallyPaused && !state.ended) {
-            // React Resume / external pause released.
             setPaused(state, false)
             input.clearHeldKeys()
           }
@@ -265,17 +364,16 @@ export function GameCanvas({
 
           playStateSounds(audio, soundTracker, state, firedSide)
           renderer.sync(state)
-          // e2e stops the ticker — force a present so the canvas updates.
           if (isE2EMode()) {
             renderer.app.render()
           }
           return publishSnapshot()
         }
 
+        sessionReady = true
         const e2eMode = isE2EMode()
 
         if (e2eMode) {
-          // Deterministic combat for Playwright: tests advance time with step().
           renderer.app.ticker.stop()
           setRandomSource(createSeededRandom(42))
 
@@ -293,9 +391,16 @@ export function GameCanvas({
               state.enemies.map((enemy) => ({
                 id: enemy.id,
                 type: enemy.type,
+                skin: enemy.skin,
                 x: enemy.x,
                 y: enemy.y,
                 health: enemy.health,
+              })),
+            getIslands: () =>
+              state.islands.map((island) => ({
+                x: island.x,
+                y: island.y,
+                radius: island.radius,
               })),
             getProjectileCount: () =>
               state.projectiles.filter((bullet) => bullet.alive).length,
@@ -314,6 +419,11 @@ export function GameCanvas({
                 state.player.alive = false
               }
               publishSnapshot()
+            },
+            applyPlayerHit: (enemyId: string) => {
+              const hit = applyTestPlayerHit(state, config, enemyId)
+              if (hit) publishSnapshot()
+              return hit
             },
           }
 
@@ -373,47 +483,77 @@ export function GameCanvas({
       renderer?.destroy()
       arenaHost.innerHTML = ''
     }
-  }, [config, reloadToken])
+  }, [config, playerSkin, reloadToken])
+
+  const loadPercent = Math.round(loadProgress * 100)
+  const blockPlay = externalPaused || loading || Boolean(loadError)
 
   return (
-    <div className="game-stage" data-testid="game-stage">
-      <div ref={hostRef} className="game-canvas-host" data-testid="game-canvas" />
+    <div className="game-stage" data-testid="game-stage" aria-busy={loading}>
+      <div
+        ref={hostRef}
+        className="game-canvas-host"
+        data-testid="game-canvas"
+        inert={blockPlay}
+      />
 
       {loading ? (
-        <div className="game-overlay" role="status">
-          <p>Carregando... {Math.round(loadProgress * 100)}%</p>
-          <div className="load-bar">
-            <span style={{ width: `${Math.round(loadProgress * 100)}%` }} />
+        <div className="game-overlay">
+          <p role="status">Loading match assets</p>
+          <p aria-hidden="true">{loadPercent}%</p>
+          <div
+            className="load-bar"
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={loadPercent}
+            aria-label="Match asset loading"
+          >
+            <span style={{ width: `${loadPercent}%` }} />
           </div>
         </div>
       ) : null}
 
       {loadError ? (
         <div className="game-overlay" role="alert">
-          <p>Não foi possível carregar os assets.</p>
+          <p>Could not load assets.</p>
           <p className="muted">{loadError}</p>
           <button
+            id="retry-assets"
             type="button"
             className="btn btn-primary"
             onClick={() => setReloadToken((value) => value + 1)}
           >
-            Tentar de novo
+            Try again
           </button>
         </div>
       ) : null}
 
       {externalPaused && !loading && !loadError ? (
         <div className="wood-overlay">
-          <div className="wood-stage__content">
+          <div
+            ref={dialogRef}
+            className="wood-stage__content"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="pause-dialog-title"
+            aria-describedby="pause-dialog-desc"
+          >
             <WoodPanel>
-              <h2 className="wood-score" style={{ fontSize: '2.2rem', color: '#f4f7fa' }}>
-                Pausado
+              <h2
+                id="pause-dialog-title"
+                className="wood-score"
+                style={{ fontSize: '2.2rem', color: '#f4f7fa' }}
+              >
+                Paused
               </h2>
-              <p className="wood-sub">Pronto quando você estiver.</p>
+              <p id="pause-dialog-desc" className="wood-sub">
+                Ready when you are.
+              </p>
               <div className="wood-actions">
-                <WoodButton onClick={onRequestResume}>Continuar</WoodButton>
+                <WoodButton onClick={onRequestResume}>Continue</WoodButton>
                 {onRequestOptions ? (
-                  <WoodButton onClick={onRequestOptions}>Opções</WoodButton>
+                  <WoodButton onClick={onRequestOptions}>Options</WoodButton>
                 ) : null}
                 {onRequestMainMenu ? (
                   <WoodButton onClick={onRequestMainMenu}>Menu</WoodButton>
@@ -424,23 +564,53 @@ export function GameCanvas({
         </div>
       ) : null}
 
-      <div ref={touchRef} className="touch-controls" aria-label="Habilidades">
+      <div
+        ref={touchRef}
+        className="touch-controls"
+        aria-label="Touch controls"
+        inert={blockPlay}
+      >
+        <div className="touch-cluster touch-cluster--move">
+          <TouchPad
+            code="KeyA"
+            label="Turn left (A)"
+            hint="A"
+            icon="assets/png/default/ui/controls/icon_turn_left.png"
+          />
+          <TouchPad
+            code="KeyW"
+            label="Forward (W)"
+            hint="W"
+            icon="assets/png/default/ui/controls/icon_forward.png"
+            className="touch-btn--forward"
+          />
+          <TouchPad
+            code="KeyD"
+            label="Turn right (D)"
+            hint="D"
+            icon="assets/png/default/ui/controls/icon_turn_right.png"
+          />
+        </div>
         <div className="touch-cluster touch-cluster--abilities">
-          <button type="button" className="touch-btn" data-key="KeyQ" aria-label="Bordo esquerdo (Q)">
-            <span className="touch-btn__key">Q</span>
-            <img className="touch-btn__bg" src={`${import.meta.env.BASE_URL}assets/png/default/ui/controls/button_round_normal.png`} alt="" />
-            <img className="touch-btn__icon" src={`${import.meta.env.BASE_URL}assets/png/default/ui/controls/icon_fire_left.png`} alt="" />
-          </button>
-          <button type="button" className="touch-btn touch-fire" data-key="Space" aria-label="Tiro frontal (Espaço)">
-            <span className="touch-btn__key">Espaço</span>
-            <img className="touch-btn__bg" src={`${import.meta.env.BASE_URL}assets/png/default/ui/controls/button_round_normal.png`} alt="" />
-            <img className="touch-btn__icon" src={`${import.meta.env.BASE_URL}assets/png/default/ui/controls/icon_fire_front.png`} alt="" />
-          </button>
-          <button type="button" className="touch-btn" data-key="KeyE" aria-label="Bordo direito (E)">
-            <span className="touch-btn__key">E</span>
-            <img className="touch-btn__bg" src={`${import.meta.env.BASE_URL}assets/png/default/ui/controls/button_round_normal.png`} alt="" />
-            <img className="touch-btn__icon" src={`${import.meta.env.BASE_URL}assets/png/default/ui/controls/icon_fire_right.png`} alt="" />
-          </button>
+          <TouchPad
+            code="KeyQ"
+            label="Port broadside (Q)"
+            hint="Q"
+            icon="assets/png/default/ui/controls/icon_fire_left.png"
+          />
+          <TouchPad
+            code="Space"
+            label="Front cannon (Space)"
+            hint="Space"
+            icon="assets/png/default/ui/controls/icon_fire_front.png"
+            className="touch-fire"
+          />
+          <TouchPad
+            code="KeyE"
+            label="Starboard broadside (E)"
+            hint="E"
+            icon="assets/png/default/ui/controls/icon_fire_right.png"
+          />
         </div>
       </div>
     </div>

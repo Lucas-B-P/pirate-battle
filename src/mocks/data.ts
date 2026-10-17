@@ -1,5 +1,6 @@
 import type { MatchRecord } from '../types/match'
 import { STORAGE_KEYS } from '../storage/storageKeys'
+import { resetHandlerState } from './handlerState'
 
 const FIXTURE_MATCHES: MatchRecord[] = [
   {
@@ -96,8 +97,5 @@ export function resetMockData(): void {
   localStorage.removeItem(STORAGE_KEYS.confirmedMatches)
   localStorage.removeItem(STORAGE_KEYS.pendingMatch)
   localStorage.removeItem(STORAGE_KEYS.lastResult)
-}
-
-export function getFixtureMatches(): MatchRecord[] {
-  return [...FIXTURE_MATCHES]
+  resetHandlerState()
 }

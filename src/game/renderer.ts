@@ -1,11 +1,13 @@
 import 'pixi.js/particle-container'
 import {
+  AnimatedSprite,
   Application,
   Container,
   Graphics,
   Sprite,
   Text,
   TextStyle,
+  Texture,
 } from 'pixi.js'
 import {
   ARENA_HEIGHT,
@@ -18,23 +20,22 @@ import { buildMapView } from './mapView'
 import { createShipWakeSystem } from './shipWake'
 import type { SimulationState } from './types'
 
-/** Visual scale for ship sprites (camera stays at CAMERA_VISIBLE_TILES). */
 const SHIP_VISUAL_MULT = 7
 const SHIP_SCALE_PLAYER = 0.85 * SHIP_VISUAL_MULT
 const SHIP_SCALE_ENEMY = 0.78 * SHIP_VISUAL_MULT
-/**
- * Ship PNGs point bow downward; sim forward at rotation 0 is up.
- * Flip the art so the pointed bow leads movement.
- */
+/** Art faces down; sim rotation 0 faces up. */
 const SHIP_SPRITE_ROTATION_OFFSET = Math.PI
-const BULLET_SCALE = 0.45 * 3
+const BULLET_SCALE = 14
+const FIRE_FRAME_SECONDS = 0.07
+const EXPLOSION_SCALE = 6.2
 
 type ShipView = {
   root: Container
   sprite: Sprite
   barBg: Graphics
   barFill: Graphics
-  fire: Sprite
+  fire: AnimatedSprite
+  fireTime: number
   lastHealth: number
   hitFlash: number
   barWidth: number
@@ -85,8 +86,8 @@ function updateHealthBar(
 }
 
 function createShipView(
-  texture: GameTextures['playerShip'],
-  fireTexture: GameTextures['fire'],
+  texture: Texture,
+  fireFrames: GameTextures['fireFrames'],
   scale: number,
 ): ShipView {
   const root = new Container()
@@ -94,17 +95,19 @@ function createShipView(
   sprite.anchor.set(0.5)
   sprite.scale.set(scale)
 
-  // Centered on the hull (root), upright — does not spin with the ship art.
-  const fire = new Sprite(fireTexture)
-  fire.anchor.set(0.5)
-  fire.position.set(0, 0)
-  fire.scale.set(scale * 0.62)
+  const fire = new AnimatedSprite(fireFrames)
+  fire.anchor.set(0.5, 1)
+  fire.position.set(0, 8)
+  fire.scale.set(1.05)
+  fire.loop = false
+  fire.gotoAndStop(0)
   fire.visible = false
+  sprite.addChild(fire)
 
   const { barBg, barFill, barWidth } = createHealthBar()
   barBg.y = -8 * SHIP_VISUAL_MULT
   barFill.y = -8 * SHIP_VISUAL_MULT
-  root.addChild(sprite, fire, barBg, barFill)
+  root.addChild(sprite, barBg, barFill)
 
   return {
     root,
@@ -112,6 +115,7 @@ function createShipView(
     barBg,
     barFill,
     fire,
+    fireTime: 0,
     lastHealth: Number.POSITIVE_INFINITY,
     hitFlash: 0,
     barWidth,
@@ -141,13 +145,19 @@ function syncShipDamage(
           Math.round(255 - wear * 140))
 
   updateHealthBar(view.barFill, health, maxHealth, view.barWidth)
-  view.fire.visible = ratio < 0.45 && health > 0
-  view.fire.alpha = ratio < 0.25 ? 1 : 0.7
+  view.fire.visible = ratio <= 0.5 && health > 0
+  view.fire.alpha = ratio < 0.25 ? 1 : 0.85
+  if (view.fire.visible && dt > 0) {
+    view.fireTime += dt
+    const frame = Math.floor(view.fireTime / FIRE_FRAME_SECONDS) % view.fire.totalFrames
+    view.fire.gotoAndStop(frame)
+  }
 }
 
 export async function createGameRenderer(
   host: HTMLElement,
   textures: GameTextures,
+  playerSkin: number,
 ): Promise<GameRenderer> {
   const app = new Application()
 
@@ -181,21 +191,27 @@ export async function createGameRenderer(
   const effectLayer = new Container()
   world.addChild(effectLayer)
 
+  const playerTexture =
+    textures.playerSkins[playerSkin] ?? textures.playerSkins[0]
+  if (!playerTexture) {
+    throw new Error('Nenhuma skin de navio carregada')
+  }
+
   const playerView = createShipView(
-    textures.playerShip,
-    textures.fire,
+    playerTexture,
+    textures.fireFrames,
     SHIP_SCALE_PLAYER,
   )
   entityLayer.addChild(playerView.root)
 
   const enemyViews = new Map<string, ShipView>()
   const bulletViews = new Map<string, BulletView>()
-  const explosionViews = new Map<string, Sprite>()
+  const explosionViews = new Map<string, AnimatedSprite>()
   const shipPrevPos = new Map<string, { x: number; y: number }>()
   const MOVE_EPS = 8
 
   const pauseText = new Text({
-    text: 'PAUSADO\nP ou Continuar',
+    text: 'PAUSED\nP or Continue',
     style: new TextStyle({
       fill: '#f0d27a',
       fontSize: 34,
@@ -228,7 +244,6 @@ export async function createGameRenderer(
     camX = Math.min(ARENA_WIDTH - halfW, Math.max(halfW, focusX))
     camY = Math.min(ARENA_HEIGHT - halfH, Math.max(halfH, focusY))
 
-    // If arena smaller than view on an axis, center it.
     if (ARENA_WIDTH <= worldViewW) camX = ARENA_WIDTH / 2
     if (ARENA_HEIGHT <= worldViewH) camY = ARENA_HEIGHT / 2
 
@@ -292,9 +307,11 @@ export async function createGameRenderer(
     for (const enemy of state.enemies) {
       let view = enemyViews.get(enemy.id)
       if (!view) {
-        const texture =
-          enemy.type === 'chaser' ? textures.chaserShip : textures.shooterShip
-        view = createShipView(texture, textures.fire, SHIP_SCALE_ENEMY)
+        const skins =
+          enemy.type === 'chaser' ? textures.chaserSkins : textures.shooterSkins
+        const texture = skins[enemy.skin % skins.length]
+        if (!texture) continue
+        view = createShipView(texture, textures.fireFrames, SHIP_SCALE_ENEMY)
         view.lastHealth = enemy.health
         enemyViews.set(enemy.id, view)
         entityLayer.addChild(view.root)
@@ -351,13 +368,13 @@ export async function createGameRenderer(
       }
 
       const speed = Math.hypot(bullet.vx, bullet.vy) || 1
-      const tx = bullet.x - (bullet.vx / speed) * 28 * 3
-      const ty = bullet.y - (bullet.vy / speed) * 28 * 3
+      const tx = bullet.x - (bullet.vx / speed) * 150
+      const ty = bullet.y - (bullet.vy / speed) * 150
       view.trail.clear()
       view.trail
         .moveTo(bullet.x, bullet.y)
         .lineTo(tx, ty)
-        .stroke({ width: 4 * 3, color: 0xffffff, alpha: 0.55 })
+        .stroke({ width: 36, color: 0x141414, alpha: 0.55 })
       view.sprite.x = bullet.x
       view.sprite.y = bullet.y
     }
@@ -377,16 +394,22 @@ export async function createGameRenderer(
       if (boom.life <= 0) continue
       let sprite = explosionViews.get(boom.id)
       if (!sprite) {
-        sprite = new Sprite(textures.explosion)
+        sprite = new AnimatedSprite(textures.explosionFrames)
         sprite.anchor.set(0.5)
+        sprite.loop = false
+        sprite.scale.set(EXPLOSION_SCALE)
         explosionViews.set(boom.id, sprite)
         effectLayer.addChild(sprite)
       }
-      const t = 1 - boom.life / boom.maxLife
+      const t = 1 - boom.life / Math.max(boom.maxLife, 0.001)
+      const frame = Math.min(
+        sprite.totalFrames - 1,
+        Math.floor(t * sprite.totalFrames),
+      )
+      sprite.gotoAndStop(frame)
       sprite.x = boom.x
       sprite.y = boom.y
-      sprite.scale.set((0.4 + t * 0.8) * 3)
-      sprite.alpha = 1 - t
+      sprite.alpha = frame >= sprite.totalFrames - 1 ? Math.max(0, 1 - (t - 0.9) / 0.1) : 1
     }
 
     pauseText.visible = state.paused && !state.ended
@@ -395,10 +418,8 @@ export async function createGameRenderer(
   function resize(width: number, height: number) {
     viewWidth = Math.max(320, width)
     viewHeight = Math.max(220, height)
-    // Keep a local view (~CAMERA_VISIBLE_TILES across), responsive to aspect ratio.
     const targetWorldW = TILE_SIZE * CAMERA_VISIBLE_TILES
     const targetWorldH = TILE_SIZE * (CAMERA_VISIBLE_TILES * 0.65)
-    // Cover the screen with a local slice of the world (never fit the whole map).
     viewScale = Math.max(viewWidth / targetWorldW, viewHeight / targetWorldH)
 
     pauseText.x = viewWidth / 2

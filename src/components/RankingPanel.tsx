@@ -8,7 +8,7 @@ export function RankingPanel() {
   const [page, setPage] = useState(1)
   const rankingQuery = useRanking({
     page,
-    pageSize: 5,
+    pageSize: 2,
     sessionTimeSeconds: options.sessionTimeSeconds,
     enemySpawnTimeSeconds: options.enemySpawnTimeSeconds,
   })
@@ -16,7 +16,7 @@ export function RankingPanel() {
   if (rankingQuery.isLoading) {
     return (
       <div className="status-box" role="status">
-        Carregando ranking...
+        Loading leaderboard...
       </div>
     )
   }
@@ -24,10 +24,10 @@ export function RankingPanel() {
   if (rankingQuery.isError) {
     return (
       <div className="status-box error" role="alert">
-        Não foi possível carregar o ranking. Você ainda pode jogar.
+        Could not load the leaderboard. You can still play.
         <div className="btn-row" style={{ marginTop: '0.75rem' }}>
           <Button variant="secondary" onClick={() => void rankingQuery.refetch()}>
-            Tentar de novo
+            Try again
           </Button>
         </div>
       </div>
@@ -39,7 +39,7 @@ export function RankingPanel() {
   if (!data || data.items.length === 0) {
     return (
       <div className="status-box empty">
-        Sem entradas no ranking para as opções atuais (
+        No leaderboard entries for current options (
         {options.sessionTimeSeconds}s / spawn {options.enemySpawnTimeSeconds}s).
       </div>
     )
@@ -48,8 +48,8 @@ export function RankingPanel() {
   return (
     <div>
       <p className="muted" style={{ marginTop: 0 }}>
-        Partidas com sessão {options.sessionTimeSeconds}s e spawn{' '}
-        {options.enemySpawnTimeSeconds}s.
+        Matches with {options.sessionTimeSeconds}s session and{' '}
+        {options.enemySpawnTimeSeconds}s spawn.
       </p>
       <table className="table">
         <thead>
@@ -78,17 +78,17 @@ export function RankingPanel() {
           disabled={page <= 1}
           onClick={() => setPage((current) => Math.max(1, current - 1))}
         >
-          Anterior
+          Previous
         </Button>
         <span className="muted">
-          Página {data.page} de {data.totalPages}
+          Page {data.page} of {data.totalPages}
         </span>
         <Button
           variant="ghost"
           disabled={page >= data.totalPages}
           onClick={() => setPage((current) => current + 1)}
         >
-          Próxima
+          Next
         </Button>
       </div>
     </div>

@@ -15,7 +15,7 @@ export function RankingScreen() {
         <ZoomBackdrop />
         <div className="wood-stage__content wood-stage__content--wide">
           <WoodPanel wide>
-            <p className="wood-tag">Placar</p>
+            <p className="wood-tag">Scoreboard</p>
             <h1 className="wood-score" style={{ fontSize: '2rem' }}>
               Ranking
             </h1>
@@ -23,7 +23,7 @@ export function RankingScreen() {
               <RankingPanel />
             </div>
             <WoodButton variant="secondary" onClick={() => navigate('/')}>
-              Voltar
+              Back
             </WoodButton>
           </WoodPanel>
         </div>

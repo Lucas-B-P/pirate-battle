@@ -23,12 +23,14 @@ export async function resetAppState(page: Page, options?: ResetOptions) {
   await page.evaluate(
     ({ storage, values }) => {
       localStorage.clear()
+      sessionStorage.clear()
       localStorage.setItem(
         storage.options,
         JSON.stringify({
           sessionTimeSeconds: values.sessionTimeSeconds,
           enemySpawnTimeSeconds: values.enemySpawnTimeSeconds,
           musicVolume: 0.45,
+          gameMusicVolume: 0.5,
           sfxVolume: 0.7,
         }),
       )
@@ -46,12 +48,12 @@ export async function resetAppState(page: Page, options?: ResetOptions) {
     },
   )
   await page.reload()
-  await expect(page.getByAltText('Batalha Pirata')).toBeVisible()
+  await expect(page.getByAltText('Pirate Battle')).toBeVisible()
 }
 
 export async function openMenu(page: Page) {
   await page.goto('/?e2e=1')
-  await expect(page.getByAltText('Batalha Pirata')).toBeVisible()
+  await expect(page.getByAltText('Pirate Battle')).toBeVisible()
 }
 
 export async function setNetworkScenario(page: Page, scenario: string) {

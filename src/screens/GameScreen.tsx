@@ -9,6 +9,7 @@ import { GameCanvas } from '../game/GameCanvas'
 import type { MatchSnapshot } from '../game/types'
 import { saveLastResult } from '../storage/lastResultStorage'
 import { loadPlayerOptions } from '../storage/optionsStorage'
+import { loadShipSkin } from '../storage/playerStorage'
 import { savePendingMatch } from '../storage/pendingMatchStorage'
 
 function formatTime(seconds: number): string {
@@ -21,6 +22,7 @@ function formatTime(seconds: number): string {
 export function GameScreen() {
   const navigate = useNavigate()
   const matchConfig = useMemo(() => createMatchConfig(loadPlayerOptions()), [])
+  const shipSkin = useMemo(() => loadShipSkin(), [])
   const [snapshot, setSnapshot] = useState<MatchSnapshot | null>(null)
   const [manualPaused, setManualPaused] = useState(false)
 
@@ -71,8 +73,8 @@ export function GameScreen() {
   return (
     <ScreenShell title="Match" variant="game">
       <section className="game-fullscreen">
-        <div className="sample-hud" aria-live="polite" data-testid="match-hud">
-          <div className="sample-hud__left">
+        <div className="match-hud" data-testid="match-hud">
+          <div className="match-hud__left">
             <div className="hull-bar">
               <img
                 className="hull-bar__icon"
@@ -92,13 +94,14 @@ export function GameScreen() {
                   />
                 </div>
                 <strong className="hull-bar__label" data-testid="hud-health">
+                  <span className="sr-only">Hull </span>
                   {health} / {maxHealth}
                 </strong>
               </div>
             </div>
           </div>
 
-          <div className="sample-hud__right">
+          <div className="match-hud__right">
             <div className="hud-plaque">
               <img
                 className="hud-plaque__bg"
@@ -110,7 +113,10 @@ export function GameScreen() {
                 src={assetUrl('assets/png/default/ui/hud/icon_score.png')}
                 alt=""
               />
-              <strong data-testid="hud-score">{snapshot?.score ?? 0}</strong>
+              <strong data-testid="hud-score">
+                <span className="sr-only">Score </span>
+                {snapshot?.score ?? 0}
+              </strong>
             </div>
             <div className="hud-plaque">
               <img
@@ -124,13 +130,14 @@ export function GameScreen() {
                 alt=""
               />
               <strong data-testid="hud-time">
+                <span className="sr-only">Time remaining </span>
                 {formatTime(snapshot?.timeLeft ?? matchConfig.sessionTimeSeconds)}
               </strong>
             </div>
             <button
               type="button"
               className="hud-pause"
-              aria-label={paused ? 'Continuar' : 'Pausar'}
+              aria-label={paused ? 'Continue' : 'Pause'}
               onClick={() => setManualPaused((value) => !value)}
             >
               <img
@@ -147,7 +154,7 @@ export function GameScreen() {
           </div>
         </div>
 
-        <span className="sr-only" data-testid="hud-status">
+        <span className="sr-only" role="status" aria-live="polite" data-testid="hud-status">
           {paused ? 'Paused' : 'Fighting'}
         </span>
 
@@ -159,6 +166,7 @@ export function GameScreen() {
           onRequestResume={() => setManualPaused(false)}
           onRequestOptions={() => navigate('/options')}
           onRequestMainMenu={() => navigate('/')}
+          playerSkin={shipSkin}
         />
       </section>
     </ScreenShell>

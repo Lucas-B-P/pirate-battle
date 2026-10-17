@@ -1,5 +1,13 @@
 import { Assets, Texture } from 'pixi.js'
 import { assetUrl } from '../assetUrl'
+import {
+  CHASER_SKIN_COUNT,
+  PLAYER_SKIN_COUNT,
+  SHOOTER_SKIN_COUNT,
+  chaserSkinPath,
+  playerSkinPath,
+  shooterSkinPath,
+} from './shipSkins'
 
 export type GameTextures = {
   water: Texture
@@ -7,12 +15,12 @@ export type GameTextures = {
   rock: Texture
   tower: Texture
   plant: Texture
-  playerShip: Texture
-  chaserShip: Texture
-  shooterShip: Texture
+  playerSkins: Texture[]
+  chaserSkins: Texture[]
+  shooterSkins: Texture[]
   cannonBall: Texture
-  explosion: Texture
-  fire: Texture
+  explosionFrames: Texture[]
+  fireFrames: Texture[]
   healthFrame: Texture
   healthFill: Texture
   counterPanel: Texture
@@ -35,12 +43,7 @@ const ASSET_PATHS = {
   rock: assetUrl('assets/png/default/tiles/tile_50.png'),
   tower: assetUrl('assets/png/default/tiles/tile_45.png'),
   plant: assetUrl('assets/png/default/tiles/tile_70.png'),
-  playerShip: assetUrl('assets/png/default/ships/ship_1.png'),
-  chaserShip: assetUrl('assets/png/default/ships/ship_4.png'),
-  shooterShip: assetUrl('assets/png/default/ships/ship_8.png'),
   cannonBall: assetUrl('assets/png/default/ship_parts/cannon_ball.png'),
-  explosion: assetUrl('assets/png/default/effects/explosion_1.png'),
-  fire: assetUrl('assets/png/default/effects/fire_1.png'),
   healthFrame: assetUrl('assets/png/default/ui/hud/health_frame.png'),
   healthFill: assetUrl('assets/png/default/ui/hud/health_fill_green.png'),
   counterPanel: assetUrl('assets/png/default/ui/hud/counter_panel.png'),
@@ -57,16 +60,79 @@ const ASSET_PATHS = {
   iconPause: assetUrl('assets/png/default/ui/controls/icon_pause.png'),
 } as const
 
+const FIRE_FRAME_COUNT = 12
+const EXPLOSION_FRAME_COUNT = 10
+
+function frameUrl(folder: string, index: number): string {
+  const name = `frame_${index.toString().padStart(2, '0')}.png`
+  return assetUrl(`assets/png/default/effects/${folder}/${name}`)
+}
+
 export async function loadGameTextures(
   onProgress?: (progress: number) => void,
 ): Promise<GameTextures> {
-  const entries = Object.entries(ASSET_PATHS) as [keyof GameTextures, string][]
+  if (
+    typeof window !== 'undefined' &&
+    new URLSearchParams(window.location.search).get('failAssets') === '1'
+  ) {
+    throw new Error('Forced asset load failure')
+  }
+
+  const entries = Object.entries(ASSET_PATHS) as [keyof typeof ASSET_PATHS, string][]
+  const frameUrls = [
+    ...Array.from({ length: FIRE_FRAME_COUNT }, (_, index) => frameUrl('fire_anim', index)),
+    ...Array.from({ length: EXPLOSION_FRAME_COUNT }, (_, index) =>
+      frameUrl('explosion_anim', index),
+    ),
+  ]
+  const playerUrls = Array.from({ length: PLAYER_SKIN_COUNT }, (_, index) =>
+    assetUrl(playerSkinPath(index)),
+  )
+  const chaserUrls = Array.from({ length: CHASER_SKIN_COUNT }, (_, index) =>
+    assetUrl(chaserSkinPath(index)),
+  )
+  const shooterUrls = Array.from({ length: SHOOTER_SKIN_COUNT }, (_, index) =>
+    assetUrl(shooterSkinPath(index)),
+  )
+  const total = entries.length + frameUrls.length + playerUrls.length + chaserUrls.length + shooterUrls.length
+  let loaded = 0
   const textures = {} as GameTextures
 
-  for (let index = 0; index < entries.length; index += 1) {
-    const [key, url] = entries[index]!
+  for (const [key, url] of entries) {
     textures[key] = await Assets.load<Texture>(url)
-    onProgress?.((index + 1) / entries.length)
+    loaded += 1
+    onProgress?.(loaded / total)
+  }
+
+  const frames: Texture[] = []
+  for (const url of frameUrls) {
+    frames.push(await Assets.load<Texture>(url))
+    loaded += 1
+    onProgress?.(loaded / total)
+  }
+
+  textures.fireFrames = frames.slice(0, FIRE_FRAME_COUNT)
+  textures.explosionFrames = frames.slice(FIRE_FRAME_COUNT)
+
+  textures.playerSkins = []
+  for (const url of playerUrls) {
+    textures.playerSkins.push(await Assets.load<Texture>(url))
+    loaded += 1
+    onProgress?.(loaded / total)
+  }
+
+  textures.chaserSkins = []
+  for (const url of chaserUrls) {
+    textures.chaserSkins.push(await Assets.load<Texture>(url))
+    loaded += 1
+    onProgress?.(loaded / total)
+  }
+
+  textures.shooterSkins = []
+  for (const url of shooterUrls) {
+    textures.shooterSkins.push(await Assets.load<Texture>(url))
+    loaded += 1
+    onProgress?.(loaded / total)
   }
 
   return textures

@@ -1,3 +1,4 @@
+import { PLAYER_SKIN_COUNT } from '../game/shipSkins'
 import { STORAGE_KEYS } from './storageKeys'
 
 function createId(): string {
@@ -15,10 +16,21 @@ export function getPlayerId(): string {
   return id
 }
 
-/** Raw saved nickname (may be empty). */
+export function loadShipSkin(): number {
+  const raw = localStorage.getItem(STORAGE_KEYS.shipSkin)
+  const value = Number(raw)
+  if (!Number.isInteger(value) || value < 0 || value >= PLAYER_SKIN_COUNT) return 0
+  return value
+}
+
+export function setShipSkin(skin: number): void {
+  const value = Math.trunc(skin)
+  if (value < 0 || value >= PLAYER_SKIN_COUNT) return
+  localStorage.setItem(STORAGE_KEYS.shipSkin, String(value))
+}
+
 export function loadPlayerName(): string {
   const existing = localStorage.getItem(STORAGE_KEYS.playerName)?.trim() ?? ''
-  // Legacy auto-filled default — treat as empty so the field starts blank.
   if (!existing || existing === 'Captain Lucas') {
     if (existing === 'Captain Lucas') {
       localStorage.removeItem(STORAGE_KEYS.playerName)
@@ -29,7 +41,6 @@ export function loadPlayerName(): string {
   return existing
 }
 
-/** Name used in match records / ranking. */
 export function getPlayerName(): string {
   return loadPlayerName() || 'Pirata'
 }

@@ -309,7 +309,7 @@
   border: 0;
 }
 
-.sample-hud {
+.match-hud {
   position: absolute;
   top: 0;
   left: 0;
@@ -323,8 +323,8 @@
   pointer-events: none;
 }
 
-.sample-hud__left,
-.sample-hud__right {
+.match-hud__left,
+.match-hud__right {
   display: flex;
   align-items: center;
   gap: 0.55rem;
@@ -528,8 +528,28 @@
   pointer-events: auto;
 }
 
-.touch-cluster--abilities {
+.touch-cluster--abilities,
+.touch-cluster--move {
   align-items: flex-end;
+}
+
+.touch-cluster--move {
+  display: none;
+}
+
+.touch-btn--forward {
+  margin-bottom: 1.85rem;
+}
+
+@media (pointer: coarse), (hover: none) {
+  .touch-controls {
+    justify-content: space-between;
+    align-items: flex-end;
+  }
+
+  .touch-cluster--move {
+    display: flex;
+  }
 }
 
 .touch-btn {
@@ -602,6 +622,27 @@
 
 .touch-fire .touch-btn__key {
   font-size: clamp(0.58rem, 1.7vw, 0.72rem);
+}
+
+@media (pointer: coarse) and (max-width: 520px), (hover: none) and (max-width: 520px) {
+  .touch-controls {
+    padding-right: 0.4rem;
+    padding-left: 0.4rem;
+  }
+
+  .touch-cluster {
+    gap: 0.4rem;
+  }
+
+  .touch-btn {
+    width: 48px;
+    height: 48px;
+  }
+
+  .touch-fire {
+    width: 56px;
+    height: 56px;
+  }
 }
 
 .result-grid {
@@ -688,7 +729,7 @@
     font-size: clamp(2.4rem, 12vw, 3.4rem);
   }
 
-  .sample-hud {
+  .match-hud {
     padding: calc(0.45rem + var(--safe-top)) 0.55rem 0;
     gap: 0.4rem;
   }
@@ -724,14 +765,14 @@
     transform-origin: bottom center;
   }
 
-  .sample-hud {
+  .match-hud {
     transform: scale(0.88);
     transform-origin: top center;
   }
 }
 
 @media (max-width: 480px) {
-  .sample-hud__right {
+  .match-hud__right {
     gap: 0.28rem;
   }
 
@@ -750,7 +791,7 @@
 }
 
 @media (max-height: 420px) and (orientation: landscape) {
-  .sample-hud {
+  .match-hud {
     transform: scale(0.78);
     transform-origin: top center;
   }

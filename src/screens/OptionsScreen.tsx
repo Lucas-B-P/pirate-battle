@@ -42,7 +42,7 @@ function validatePartial(options: PlayerOptions): FormErrors {
     options.sessionTimeSeconds < SESSION_TIME_MIN ||
     options.sessionTimeSeconds > SESSION_TIME_MAX
   ) {
-    errors.sessionTimeSeconds = `Entre ${SESSION_TIME_MIN} e ${SESSION_TIME_MAX}s.`
+    errors.sessionTimeSeconds = `Enter a value between ${SESSION_TIME_MIN} and ${SESSION_TIME_MAX}s.`
   }
 
   if (
@@ -50,7 +50,7 @@ function validatePartial(options: PlayerOptions): FormErrors {
     options.enemySpawnTimeSeconds < SPAWN_TIME_MIN ||
     options.enemySpawnTimeSeconds > SPAWN_TIME_MAX
   ) {
-    errors.enemySpawnTimeSeconds = `Entre ${SPAWN_TIME_MIN} e ${SPAWN_TIME_MAX}s.`
+    errors.enemySpawnTimeSeconds = `Enter a value between ${SPAWN_TIME_MIN} and ${SPAWN_TIME_MAX}s.`
   }
 
   return errors
@@ -91,6 +91,7 @@ function VolumeSlider({
           max={MUSIC_VOLUME_MAX}
           step={0.01}
           value={value}
+          aria-valuetext={`${percent}%`}
           onChange={(event) => onChange(Number(event.target.value))}
         />
       </div>
@@ -140,19 +141,19 @@ export function OptionsScreen() {
   }
 
   return (
-    <ScreenShell title="Opções" variant="game">
+    <ScreenShell title="Options" variant="game">
       <div className="wood-stage wood-stage--options">
         <ZoomBackdrop />
 
         <div className="wood-stage__content wood-stage__content--options">
           <WoodPanel className="wood-panel--options wood-panel--settings">
             <p className="settings-kicker">Menu</p>
-            <h1 className="settings-title">Opções</h1>
+            <h1 className="settings-title">Options</h1>
 
             <div className="settings-body wood-form">
               <VolumeSlider
                 id="menu-music-volume"
-                label="Música do menu"
+                label="Menu music"
                 testId="music-volume"
                 value={options.musicVolume}
                 onChange={(musicVolume) => {
@@ -163,7 +164,7 @@ export function OptionsScreen() {
 
               <VolumeSlider
                 id="game-music-volume"
-                label="Música do jogo"
+                label="Game music"
                 testId="game-music-volume"
                 value={options.gameMusicVolume}
                 onChange={(gameMusicVolume) => {
@@ -174,7 +175,7 @@ export function OptionsScreen() {
 
               <VolumeSlider
                 id="sfx-volume"
-                label="Som dos efeitos"
+                label="Sound effects"
                 testId="sfx-volume"
                 value={options.sfxVolume}
                 onChange={(sfxVolume) => {
@@ -184,7 +185,7 @@ export function OptionsScreen() {
               />
 
               <div className="field">
-                <label htmlFor="session-time">Tempo da sessão (s)</label>
+                <label htmlFor="session-time">Session length (s)</label>
                 <input
                   id="session-time"
                   data-testid="session-time"
@@ -192,19 +193,23 @@ export function OptionsScreen() {
                   min={SESSION_TIME_MIN}
                   max={SESSION_TIME_MAX}
                   value={options.sessionTimeSeconds}
+                  aria-invalid={errors.sessionTimeSeconds ? true : undefined}
+                  aria-describedby={
+                    errors.sessionTimeSeconds ? 'session-time-error' : undefined
+                  }
                   onChange={(event) =>
                     patch({ sessionTimeSeconds: Number(event.target.value) })
                   }
                 />
                 {errors.sessionTimeSeconds ? (
-                  <p className="field-error" role="alert">
+                  <p id="session-time-error" className="field-error" role="alert">
                     {errors.sessionTimeSeconds}
                   </p>
                 ) : null}
               </div>
 
               <div className="field">
-                <label htmlFor="spawn-time">Spawn de inimigos (s)</label>
+                <label htmlFor="spawn-time">Enemy spawn interval (s)</label>
                 <input
                   id="spawn-time"
                   data-testid="spawn-time"
@@ -213,6 +218,10 @@ export function OptionsScreen() {
                   max={SPAWN_TIME_MAX}
                   step="0.5"
                   value={options.enemySpawnTimeSeconds}
+                  aria-invalid={errors.enemySpawnTimeSeconds ? true : undefined}
+                  aria-describedby={
+                    errors.enemySpawnTimeSeconds ? 'spawn-time-error' : undefined
+                  }
                   onChange={(event) =>
                     patch({
                       enemySpawnTimeSeconds: Number(event.target.value),
@@ -220,14 +229,14 @@ export function OptionsScreen() {
                   }
                 />
                 {errors.enemySpawnTimeSeconds ? (
-                  <p className="field-error" role="alert">
+                  <p id="spawn-time-error" className="field-error" role="alert">
                     {errors.enemySpawnTimeSeconds}
                   </p>
                 ) : null}
               </div>
 
               <div className="field">
-                <label htmlFor="network-scenario">Cenário de rede (MSW)</label>
+                <label htmlFor="network-scenario">Network scenario (MSW)</label>
                 <select
                   id="network-scenario"
                   data-testid="network-scenario"
@@ -255,11 +264,11 @@ export function OptionsScreen() {
                   window.location.reload()
                 }}
               >
-                Resetar dados mock
+                Reset mock data
               </button>
 
               <p className="settings-hint" role="status">
-                Alterações salvas automaticamente
+                Changes saved automatically
               </p>
             </div>
 

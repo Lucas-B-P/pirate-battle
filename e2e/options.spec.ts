@@ -11,18 +11,18 @@ test.describe('Options', () => {
     })
 
     await page.getByTestId('options-button').click()
-    await expect(page.getByText('Opções', { exact: true })).toBeVisible()
+    await expect(page.getByText('Options', { exact: true })).toBeVisible()
     await expect(page.getByTestId('network-scenario')).toBeVisible()
 
     await page.getByTestId('session-time').fill('30')
     await page.getByTestId('spawn-time').fill('0')
     await expect(page.getByRole('alert').first()).toBeVisible()
-    await expect(page.getByText(/Entre 60 e 180/i)).toBeVisible()
+    await expect(page.getByText(/Enter a value between 60 and 180/i)).toBeVisible()
 
     await page.getByTestId('session-time').fill('120')
     await page.getByTestId('spawn-time').fill('4')
     await expect(page.getByRole('status')).toContainText(
-      'Alterações salvas automaticamente',
+      'Changes saved automatically',
     )
 
     await expect

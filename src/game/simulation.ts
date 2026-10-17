@@ -18,6 +18,7 @@ import {
   rotateTowards,
 } from './math'
 import { random } from './random'
+import { CHASER_SKIN_COUNT, SHOOTER_SKIN_COUNT } from './shipSkins'
 import type {
   EnemyEntity,
   ExplosionEffect,
@@ -123,7 +124,6 @@ function firePlayerWeapon(
     return
   }
 
-  // Q = left broadside (port), E = right broadside (starboard)
   if (side === 'left') {
     if (state.leftCooldown > 0) return
     state.leftCooldown = config.playerSideCooldownSeconds
@@ -165,13 +165,12 @@ function addExplosion(state: SimulationState, x: number, y: number) {
     id: createId('boom'),
     x,
     y,
-    life: 0.45,
-    maxLife: 0.45,
+    life: 0.8,
+    maxLife: 0.8,
   }
   state.explosions.push(explosion)
 }
 
-/** Keep spawns well away from the player (map is TILE_SIZE 640 / 10×). */
 const MIN_ENEMY_SPAWN_DISTANCE = TILE_SIZE * 5
 const SPAWN_EDGE_MARGIN = TILE_SIZE * 0.4
 const SPAWN_WATER_CLEARANCE = 220
@@ -196,12 +195,22 @@ function spawnEnemy(state: SimulationState, config: GameConfig) {
   const point = findSpawnPoint(state)
   if (!point) return
 
-  const isChaser = state.nextEnemyIsChaser
-  state.nextEnemyIsChaser = !state.nextEnemyIsChaser
+  const isChaser =
+    config.enemySpawnPattern === 'alternate' ? state.nextEnemyIsChaser : true
+  if (config.enemySpawnPattern === 'alternate') {
+    state.nextEnemyIsChaser = !state.nextEnemyIsChaser
+  }
+  const skin = isChaser ? state.nextChaserSkin : state.nextShooterSkin
+  if (isChaser) {
+    state.nextChaserSkin = (skin + 1) % CHASER_SKIN_COUNT
+  } else {
+    state.nextShooterSkin = (skin + 1) % SHOOTER_SKIN_COUNT
+  }
 
   const enemy: EnemyEntity = {
     id: createId(isChaser ? 'chaser' : 'shooter'),
     type: isChaser ? 'chaser' : 'shooter',
+    skin,
     x: point.x,
     y: point.y,
     rotation: angleTowards(point, state.player),
@@ -285,7 +294,6 @@ function updateEnemies(state: SimulationState, config: GameConfig, dt: number) {
         )
         enemy.alive = false
         addExplosion(state, enemy.x, enemy.y)
-        // Chaser suicide does not give score.
       }
       continue
     }
@@ -375,6 +383,8 @@ export function createSimulation(config: GameConfig): SimulationState {
     islands: ARENA_ISLANDS.map((island) => ({ ...island })),
     spawnTimer: 1,
     nextEnemyIsChaser: true,
+    nextChaserSkin: 0,
+    nextShooterSkin: 0,
     timeLeft: config.sessionTimeSeconds,
     score: 0,
     paused: false,
@@ -385,6 +395,26 @@ export function createSimulation(config: GameConfig): SimulationState {
     leftCooldown: 0,
     rightCooldown: 0,
   }
+}
+
+/** Test helper: apply one player hit using the same scoring rules as combat. */
+export function applyTestPlayerHit(
+  state: SimulationState,
+  config: GameConfig,
+  enemyId: string,
+): boolean {
+  if (state.ended) return false
+  const enemy = state.enemies.find((item) => item.id === enemyId && item.alive)
+  if (!enemy) return false
+
+  enemy.health -= config.projectileDamage
+  if (enemy.health <= 0) {
+    enemy.alive = false
+    enemy.health = 0
+    state.score += 1
+    addExplosion(state, enemy.x, enemy.y)
+  }
+  return true
 }
 
 export function getSnapshot(state: SimulationState): MatchSnapshot {
