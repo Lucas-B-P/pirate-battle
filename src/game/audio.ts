@@ -1,5 +1,19 @@
+import {
+  isAudioSessionUnlocked,
+  unlockAudioSession,
+} from '../audio/audioSession'
 import { assetUrl } from '../assetUrl'
+import { DEFAULT_SFX_VOLUME } from '../config/gameConfig'
+import { loadPlayerOptions } from '../storage/optionsStorage'
 import { isE2EMode } from './testApi'
+
+function readSfxVolume(): number {
+  try {
+    return loadPlayerOptions().sfxVolume
+  } catch {
+    return DEFAULT_SFX_VOLUME
+  }
+}
 
 type SoundName =
   | 'cannonFire'
@@ -36,26 +50,87 @@ const SOUND_FILES: Record<SoundName, string[]> = {
   start: [assetUrl('assets/sounds/game_start.wav')],
 }
 
+const POOL_SIZE = 3
+const pools = new Map<string, HTMLAudioElement[]>()
+let poolWarmed = false
+
 function pick(files: string[]): string {
   const index = Math.floor(Math.random() * files.length)
   return files[index] ?? files[0]!
 }
 
-export function createGameAudio() {
-  const unlocked = { value: false }
+function prepareElement(url: string): HTMLAudioElement {
+  const audio = new Audio(url)
+  audio.preload = 'auto'
+  audio.setAttribute('playsinline', 'true')
+  audio.setAttribute('webkit-playsinline', 'true')
+  return audio
+}
 
+function getPooledAudio(url: string): HTMLAudioElement {
+  let pool = pools.get(url)
+  if (!pool) {
+    pool = []
+    pools.set(url, pool)
+  }
+
+  const idle = pool.find((item) => item.paused || item.ended)
+  if (idle) return idle
+
+  const audio = prepareElement(url)
+  pool.push(audio)
+  if (pool.length > POOL_SIZE) {
+    const dropped = pool.shift()
+    dropped?.removeAttribute('src')
+  }
+  return audio
+}
+
+function warmPool(): void {
+  if (poolWarmed) return
+  poolWarmed = true
+  for (const files of Object.values(SOUND_FILES)) {
+    const url = files[0]
+    if (!url || pools.has(url)) continue
+    const audio = prepareElement(url)
+    audio.volume = 0.001
+    pools.set(url, [audio])
+    const result = audio.play()
+    if (result) {
+      void result
+        .then(() => {
+          audio.pause()
+          audio.currentTime = 0
+        })
+        .catch(() => {})
+    }
+  }
+}
+
+export function createGameAudio() {
   function unlock() {
-    unlocked.value = true
+    unlockAudioSession()
+    warmPool()
   }
 
   function play(name: SoundName, volume = 0.45) {
-    if (isE2EMode() || !unlocked.value) return
+    if (isE2EMode()) return
+    if (!isAudioSessionUnlocked()) return
+
+    const sfxScale = readSfxVolume()
+    if (sfxScale <= 0.001) return
 
     try {
-      const audio = new Audio(pick(SOUND_FILES[name]))
-      audio.volume = volume
+      const url = pick(SOUND_FILES[name])
+      const audio = getPooledAudio(url)
+      audio.volume = Math.min(1, volume * sfxScale)
+      try {
+        audio.currentTime = 0
+      } catch {
+        // Some iOS builds throw if metadata is not ready yet.
+      }
       void audio.play().catch(() => {
-        // Autoplay can fail until the user interacts; ignore.
+        // Autoplay can still fail until another gesture; ignore.
       })
     } catch {
       // Ignore audio errors so gameplay never breaks.

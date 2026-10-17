@@ -6,8 +6,12 @@ import {
 } from '../config/gameConfig'
 import { isE2EMode } from '../game/testApi'
 import { loadPlayerOptions } from '../storage/optionsStorage'
+import {
+  bindAudioSessionGestures,
+  isAudioSessionUnlocked,
+  unlockAudioSession,
+} from './audioSession'
 
-let unlocked = false
 let menuMusic: HTMLAudioElement | null = null
 let gameMusic: HTMLAudioElement | null = null
 let menuMusicVolume = DEFAULT_MUSIC_VOLUME
@@ -34,6 +38,12 @@ function readStoredVolumes() {
   }
 }
 
+function tagInline(audio: HTMLAudioElement) {
+  audio.setAttribute('playsinline', 'true')
+  audio.setAttribute('webkit-playsinline', 'true')
+  ;(audio as HTMLAudioElement & { playsInline?: boolean }).playsInline = true
+}
+
 function ensureMenuMusic() {
   if (!menuMusic) {
     const embedded = document.getElementById(
@@ -42,7 +52,7 @@ function ensureMenuMusic() {
     menuMusic = embedded ?? new Audio(assetUrl('assets/sounds/sail_the_silly_sea.mp3'))
     menuMusic.loop = true
     menuMusic.preload = 'auto'
-    menuMusic.setAttribute('playsinline', 'true')
+    tagInline(menuMusic)
     if (!menuMusic.getAttribute('src') && !embedded) {
       menuMusic.src = assetUrl('assets/sounds/sail_the_silly_sea.mp3')
     }
@@ -56,7 +66,7 @@ function ensureGameMusic() {
     gameMusic = new Audio(assetUrl('assets/sounds/deck_to_mine.mp3'))
     gameMusic.loop = true
     gameMusic.preload = 'auto'
-    gameMusic.setAttribute('playsinline', 'true')
+    tagInline(gameMusic)
   }
   gameMusic.volume = gameMusicVolume
   return gameMusic
@@ -74,11 +84,10 @@ function tryPlayMenu() {
   if (playResult) {
     void playResult
       .then(() => {
-        unlocked = true
         stopRetryLoop()
       })
       .catch(() => {
-        // Browser blocked autoplay — keep retrying briefly.
+        // Browser blocked autoplay — keep retrying after unlock.
       })
   }
 }
@@ -93,13 +102,9 @@ function tryPlayGame() {
   }
   const playResult = audio.play()
   if (playResult) {
-    void playResult
-      .then(() => {
-        unlocked = true
-      })
-      .catch(() => {
-        // Autoplay may still need a prior gesture from menu.
-      })
+    void playResult.catch(() => {
+      // Autoplay may still need a prior gesture.
+    })
   }
 }
 
@@ -115,15 +120,45 @@ function startRetryLoop() {
   let attempts = 0
   retryTimer = window.setInterval(() => {
     attempts += 1
-    tryPlayMenu()
-    if (attempts >= 20 || (menuMusic && !menuMusic.paused)) {
+    if (isAudioSessionUnlocked()) {
+      tryPlayMenu()
+    }
+    if (attempts >= 40 || (menuMusic && !menuMusic.paused)) {
       stopRetryLoop()
     }
-  }, 500)
+  }, 400)
 }
 
 export function unlockUiAudio() {
-  unlocked = true
+  unlockAudioSession()
+  // Warm both music elements inside the gesture so iOS standalone allows later plays.
+  const menu = ensureMenuMusic()
+  const game = ensureGameMusic()
+  const warm = (audio: HTMLAudioElement) => {
+    const previous = audio.volume
+    audio.volume = Math.max(0.01, previous || 0.01)
+    const result = audio.play()
+    if (result) {
+      void result
+        .then(() => {
+          if (!gameMusicActive && audio === game) {
+            audio.pause()
+            audio.currentTime = 0
+          }
+          if (gameMusicActive && audio === menu) {
+            audio.pause()
+            audio.currentTime = 0
+          }
+          audio.volume = audio === menu ? menuMusicVolume : gameMusicVolume
+        })
+        .catch(() => {
+          audio.volume = audio === menu ? menuMusicVolume : gameMusicVolume
+        })
+    }
+  }
+  warm(menu)
+  warm(game)
+
   if (gameMusicActive) {
     tryPlayGame()
   } else {
@@ -137,7 +172,7 @@ export function setMenuMusicVolume(volume: number) {
     menuMusic.volume = menuMusicVolume
     if (menuMusicVolume <= 0.001) {
       menuMusic.pause()
-    } else if (!gameMusicActive && (unlocked || !menuMusic.paused)) {
+    } else if (!gameMusicActive && isAudioSessionUnlocked()) {
       tryPlayMenu()
     }
   }
@@ -173,6 +208,7 @@ export function getSfxVolume() {
 
 export function playUiSound(name: 'click' | 'open' | 'back' | 'hover') {
   if (isE2EMode() || sfxVolume <= 0.001) return
+  unlockAudioSession()
   const file =
     name === 'click'
       ? 'assets/sounds/ui_click.wav'
@@ -184,6 +220,7 @@ export function playUiSound(name: 'click' | 'open' | 'back' | 'hover') {
 
   try {
     const audio = new Audio(assetUrl(file))
+    tagInline(audio)
     audio.volume = (name === 'hover' ? 0.22 : 0.4) * sfxVolume
     void audio.play().catch(() => {})
   } catch {
@@ -201,7 +238,9 @@ export function bootMenuAudio() {
   gameMusicVolume = stored.gameMusicVolume
   sfxVolume = stored.sfxVolume
 
+  bindAudioSessionGestures()
   ensureMenuMusic()
+  ensureGameMusic()
   tryPlayMenu()
   startRetryLoop()
 
@@ -209,7 +248,8 @@ export function bootMenuAudio() {
   const unlock = () => unlockUiAudio()
   window.addEventListener('pointerdown', unlock, { capture: true })
   window.addEventListener('keydown', unlock, { capture: true })
-  window.addEventListener('touchstart', unlock, { capture: true })
+  window.addEventListener('touchstart', unlock, { capture: true, passive: true })
+  window.addEventListener('touchend', unlock, { capture: true, passive: true })
 }
 
 export function startMenuAmbience() {
@@ -218,9 +258,10 @@ export function startMenuAmbience() {
   menuMusicVolume = stored.musicVolume
   gameMusicVolume = stored.gameMusicVolume
   sfxVolume = stored.sfxVolume
-  unlocked = true
   stopGameMusic()
-  tryPlayMenu()
+  if (isAudioSessionUnlocked()) {
+    tryPlayMenu()
+  }
 }
 
 export function stopMenuAmbience() {
@@ -239,11 +280,16 @@ export function startGameMusic() {
   const stored = readStoredVolumes()
   gameMusicVolume = stored.gameMusicVolume
   gameMusicActive = true
-  unlocked = true
   stopMenuAmbience()
   const audio = ensureGameMusic()
   audio.currentTime = 0
-  tryPlayGame()
+  if (isAudioSessionUnlocked()) {
+    tryPlayGame()
+  } else {
+    // Will start on next gesture via unlockUiAudio / session binders.
+    unlockAudioSession()
+    tryPlayGame()
+  }
 }
 
 export function stopGameMusic() {

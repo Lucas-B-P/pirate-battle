@@ -303,8 +303,12 @@ export function GameCanvas({
     let startSoundPlayed = false
 
     const unlockAudio = () => audio.unlock()
-    window.addEventListener('pointerdown', unlockAudio, { once: true })
-    window.addEventListener('keydown', unlockAudio, { once: true })
+    window.addEventListener('pointerdown', unlockAudio, { capture: true })
+    window.addEventListener('touchstart', unlockAudio, { capture: true, passive: true })
+    window.addEventListener('touchend', unlockAudio, { capture: true, passive: true })
+    window.addEventListener('keydown', unlockAudio, { capture: true })
+    // If the menu already unlocked the session (Play tap), warm SFX immediately.
+    audio.unlock()
 
     onSnapshotRef.current(lastSnapshot)
 
@@ -573,8 +577,10 @@ export function GameCanvas({
       disposed = true
       stopListeners?.()
       touchCleanups.forEach((cleanup) => cleanup())
-      window.removeEventListener('pointerdown', unlockAudio)
-      window.removeEventListener('keydown', unlockAudio)
+      window.removeEventListener('pointerdown', unlockAudio, true)
+      window.removeEventListener('touchstart', unlockAudio, true)
+      window.removeEventListener('touchend', unlockAudio, true)
+      window.removeEventListener('keydown', unlockAudio, true)
       input.detach()
       if (window.__pirateBattleTest) {
         delete window.__pirateBattleTest

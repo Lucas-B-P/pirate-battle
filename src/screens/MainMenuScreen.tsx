@@ -159,32 +159,34 @@ export function MainMenuScreen() {
                     }
                   }}
                 >
-                  <button
-                    type="button"
-                    className="ship-picker__btn"
-                    aria-label="Previous ship"
-                    onClick={() => stepSkin(-1)}
-                  >
-                    ‹
-                  </button>
-                  <div className="ship-picker__preview">
-                    <img
-                      className="ship-picker__ship"
-                      src={assetUrl(playerSkinPath(shipSkin))}
-                      alt=""
-                    />
-                    <p id="ship-skin-name" className="ship-picker__name" aria-live="polite">
-                      {PLAYER_SKIN_NAMES[shipSkin] ?? 'Ship'}
-                    </p>
+                  <div className="ship-picker__row">
+                    <button
+                      type="button"
+                      className="ship-picker__btn"
+                      aria-label="Previous ship"
+                      onClick={() => stepSkin(-1)}
+                    >
+                      ‹
+                    </button>
+                    <div className="ship-picker__preview">
+                      <img
+                        className="ship-picker__ship"
+                        src={assetUrl(playerSkinPath(shipSkin))}
+                        alt=""
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      className="ship-picker__btn"
+                      aria-label="Next ship"
+                      onClick={() => stepSkin(1)}
+                    >
+                      ›
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    className="ship-picker__btn"
-                    aria-label="Next ship"
-                    onClick={() => stepSkin(1)}
-                  >
-                    ›
-                  </button>
+                  <p id="ship-skin-name" className="ship-picker__name" aria-live="polite">
+                    {PLAYER_SKIN_NAMES[shipSkin] ?? 'Ship'}
+                  </p>
                 </div>
                 <div className="wood-controls" aria-label="Controls">
                   <p className="wood-controls__line">
