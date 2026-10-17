@@ -63,21 +63,23 @@ const ASSET_PATHS = {
 const FIRE_FRAME_COUNT = 12
 const EXPLOSION_FRAME_COUNT = 10
 
+let texturesPromise: Promise<GameTextures> | null = null
+
 function frameUrl(folder: string, index: number): string {
   const name = `frame_${index.toString().padStart(2, '0')}.png`
   return assetUrl(`assets/png/default/effects/${folder}/${name}`)
 }
 
-export async function loadGameTextures(
-  onProgress?: (progress: number) => void,
-): Promise<GameTextures> {
-  if (
+function shouldForceFail(): boolean {
+  return (
     typeof window !== 'undefined' &&
     new URLSearchParams(window.location.search).get('failAssets') === '1'
-  ) {
-    throw new Error('Forced asset load failure')
-  }
+  )
+}
 
+async function loadAllTextures(
+  onProgress?: (progress: number) => void,
+): Promise<GameTextures> {
   const entries = Object.entries(ASSET_PATHS) as [keyof typeof ASSET_PATHS, string][]
   const frameUrls = [
     ...Array.from({ length: FIRE_FRAME_COUNT }, (_, index) => frameUrl('fire_anim', index)),
@@ -94,46 +96,67 @@ export async function loadGameTextures(
   const shooterUrls = Array.from({ length: SHOOTER_SKIN_COUNT }, (_, index) =>
     assetUrl(shooterSkinPath(index)),
   )
-  const total = entries.length + frameUrls.length + playerUrls.length + chaserUrls.length + shooterUrls.length
+
+  const allUrls = [
+    ...entries.map(([, url]) => url),
+    ...frameUrls,
+    ...playerUrls,
+    ...chaserUrls,
+    ...shooterUrls,
+  ]
+  const total = allUrls.length
   let loaded = 0
+
+  await Promise.all(
+    allUrls.map(async (url) => {
+      await Assets.load(url)
+      loaded += 1
+      onProgress?.(loaded / total)
+    }),
+  )
+
   const textures = {} as GameTextures
-
   for (const [key, url] of entries) {
-    textures[key] = await Assets.load<Texture>(url)
-    loaded += 1
-    onProgress?.(loaded / total)
+    textures[key] = Assets.get<Texture>(url)
   }
 
-  const frames: Texture[] = []
-  for (const url of frameUrls) {
-    frames.push(await Assets.load<Texture>(url))
-    loaded += 1
-    onProgress?.(loaded / total)
-  }
+  textures.fireFrames = frameUrls
+    .slice(0, FIRE_FRAME_COUNT)
+    .map((url) => Assets.get<Texture>(url))
+  textures.explosionFrames = frameUrls
+    .slice(FIRE_FRAME_COUNT)
+    .map((url) => Assets.get<Texture>(url))
+  textures.playerSkins = playerUrls.map((url) => Assets.get<Texture>(url))
+  textures.chaserSkins = chaserUrls.map((url) => Assets.get<Texture>(url))
+  textures.shooterSkins = shooterUrls.map((url) => Assets.get<Texture>(url))
 
-  textures.fireFrames = frames.slice(0, FIRE_FRAME_COUNT)
-  textures.explosionFrames = frames.slice(FIRE_FRAME_COUNT)
-
-  textures.playerSkins = []
-  for (const url of playerUrls) {
-    textures.playerSkins.push(await Assets.load<Texture>(url))
-    loaded += 1
-    onProgress?.(loaded / total)
-  }
-
-  textures.chaserSkins = []
-  for (const url of chaserUrls) {
-    textures.chaserSkins.push(await Assets.load<Texture>(url))
-    loaded += 1
-    onProgress?.(loaded / total)
-  }
-
-  textures.shooterSkins = []
-  for (const url of shooterUrls) {
-    textures.shooterSkins.push(await Assets.load<Texture>(url))
-    loaded += 1
-    onProgress?.(loaded / total)
-  }
-
+  onProgress?.(1)
   return textures
+}
+
+/**
+ * Loads match textures once per page lifetime (until hard refresh / cache clear).
+ */
+export async function loadGameTextures(
+  onProgress?: (progress: number) => void,
+): Promise<GameTextures> {
+  if (shouldForceFail()) {
+    texturesPromise = null
+    throw new Error('Forced asset load failure')
+  }
+
+  if (!texturesPromise) {
+    texturesPromise = loadAllTextures(onProgress).catch((error) => {
+      texturesPromise = null
+      throw error
+    })
+  } else {
+    onProgress?.(1)
+  }
+
+  return texturesPromise
+}
+
+export function clearGameTextureCache(): void {
+  texturesPromise = null
 }

@@ -413,6 +413,30 @@ h2,
   margin-top: 1rem;
 }
 
+html.immersive-mobile,
+html.immersive-mobile body {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: manipulation;
+  background: #0b1d33;
+}
+
+html.immersive-mobile .app-shell--game,
+html.immersive-mobile .screen--game,
+html.immersive-mobile .game-fullscreen {
+  height: 100svh;
+  max-height: 100svh;
+  min-height: 100svh;
+}
+
+html.immersive-mobile .match-hud {
+  padding-top: max(0.35rem, env(safe-area-inset-top, 0px));
+}
+
 .landscape-gate {
   position: fixed;
   inset: 0;

@@ -1,57 +1,39 @@
 import { useEffect, useState, type ReactNode } from 'react'
-
-function isCoarsePointer(): boolean {
-  if (typeof window === 'undefined') return false
-  return (
-    window.matchMedia('(pointer: coarse)').matches ||
-    window.matchMedia('(hover: none)').matches
-  )
-}
-
-function isPortrait(): boolean {
-  if (typeof window === 'undefined') return false
-  return window.matchMedia('(orientation: portrait)').matches
-}
-
-async function tryLockLandscape(): Promise<void> {
-  const orientation = screen.orientation as ScreenOrientation & {
-    lock?: (orientation: OrientationLockType) => Promise<void>
-  }
-  if (!orientation?.lock) return
-  try {
-    await orientation.lock('landscape')
-  } catch {
-    // Browsers often require fullscreen / installed PWA; overlay still guides the user.
-  }
-}
+import { isMobileClient, isPortrait } from '../mobile/device'
+import { enterImmersiveLandscape, exitImmersiveLandscape } from '../mobile/immersive'
 
 export function LandscapeGate({ children }: { children: ReactNode }) {
   const [blocked, setBlocked] = useState(false)
 
   useEffect(() => {
     const sync = () => {
-      const mobile = isCoarsePointer()
+      const mobile = isMobileClient()
       const portrait = isPortrait()
       setBlocked(mobile && portrait)
-      if (mobile && !portrait) {
-        void tryLockLandscape()
+      if (mobile && portrait) {
+        void exitImmersiveLandscape()
+      } else if (mobile && !portrait) {
+        void enterImmersiveLandscape()
+      } else {
+        void exitImmersiveLandscape()
       }
     }
 
     sync()
     window.addEventListener('orientationchange', sync)
     window.addEventListener('resize', sync)
-    const unlock = () => {
-      void tryLockLandscape()
+    const onGesture = () => {
+      void enterImmersiveLandscape()
     }
-    window.addEventListener('pointerdown', unlock, { once: true })
-    window.addEventListener('touchstart', unlock, { once: true })
+    window.addEventListener('pointerdown', onGesture)
+    window.addEventListener('touchstart', onGesture)
 
     return () => {
       window.removeEventListener('orientationchange', sync)
       window.removeEventListener('resize', sync)
-      window.removeEventListener('pointerdown', unlock)
-      window.removeEventListener('touchstart', unlock)
+      window.removeEventListener('pointerdown', onGesture)
+      window.removeEventListener('touchstart', onGesture)
+      void exitImmersiveLandscape()
     }
   }, [])
 
@@ -59,7 +41,12 @@ export function LandscapeGate({ children }: { children: ReactNode }) {
     <>
       {children}
       {blocked ? (
-        <div className="landscape-gate" role="alertdialog" aria-modal="true" aria-labelledby="landscape-gate-title">
+        <div
+          className="landscape-gate"
+          role="alertdialog"
+          aria-modal="true"
+          aria-labelledby="landscape-gate-title"
+        >
           <div className="landscape-gate__card">
             <p id="landscape-gate-title" className="landscape-gate__title">
               Rotate your device

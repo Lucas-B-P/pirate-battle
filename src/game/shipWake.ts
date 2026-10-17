@@ -38,14 +38,14 @@ function createFoamTexture(): Texture {
   return Texture.from(canvas)
 }
 
-function wakeConfig(texture: Texture, dense: boolean): EmitterConfigV3 {
+function wakeConfig(texture: Texture, dense: boolean, lite: boolean): EmitterConfigV3 {
   const scale = TILE_SIZE / 64
   return {
-    lifetime: { min: 0.55, max: 1.15 },
-    frequency: dense ? 0.016 : 0.028,
+    lifetime: { min: lite ? 0.35 : 0.55, max: lite ? 0.7 : 1.15 },
+    frequency: lite ? (dense ? 0.05 : 0.08) : dense ? 0.016 : 0.028,
     spawnChance: 1,
-    particlesPerWave: dense ? 3 : 2,
-    maxParticles: dense ? 280 : 160,
+    particlesPerWave: lite ? 1 : dense ? 3 : 2,
+    maxParticles: lite ? (dense ? 48 : 28) : dense ? 280 : 160,
     addAtBack: true,
     pos: { x: 0, y: 0 },
     emit: false,
@@ -144,7 +144,7 @@ export type ShipWakeSystem = {
   destroy: () => void
 }
 
-export function createShipWakeSystem(): ShipWakeSystem {
+export function createShipWakeSystem(lite = false): ShipWakeSystem {
   const foamTexture = createFoamTexture()
   const container = new ParticleContainer({
     dynamicProperties: {
@@ -157,14 +157,13 @@ export function createShipWakeSystem(): ShipWakeSystem {
   container.label = 'ship-wakes'
 
   const emitters = new Map<string, WakeEmitter>()
-  // Match ship art/sim: rotation 0 faces up; wake spawns at the stern.
   const sternDistance = TILE_SIZE * 0.48
 
   function getOrCreate(id: string, dense: boolean): WakeEmitter {
     const existing = emitters.get(id)
     if (existing) return existing
 
-    const emitter = new Emitter(container, wakeConfig(foamTexture, dense), foamTexture)
+    const emitter = new Emitter(container, wakeConfig(foamTexture, dense, lite), foamTexture)
     emitter.emit = false
     const entry: WakeEmitter = {
       id,

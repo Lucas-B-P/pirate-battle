@@ -16,6 +16,7 @@ import {
   TILE_SIZE,
 } from './arena'
 import type { GameTextures } from './assets'
+import { preferLiteGraphics, renderResolutionCap } from '../mobile/device'
 import { buildMapView } from './mapView'
 import { createShipWakeSystem } from './shipWake'
 import type { SimulationState } from './types'
@@ -160,15 +161,21 @@ export async function createGameRenderer(
   playerSkin: number,
 ): Promise<GameRenderer> {
   const app = new Application()
+  const lite = preferLiteGraphics()
 
   await app.init({
     width: Math.max(320, host.clientWidth || 800),
     height: Math.max(220, host.clientHeight || 600),
     background: '#0a4a72',
-    antialias: true,
-    resolution: Math.min(window.devicePixelRatio || 1, 2),
+    antialias: !lite,
+    resolution: renderResolutionCap(),
     autoDensity: true,
+    ...(lite ? { powerPreference: 'high-performance' as const } : {}),
+    hello: false,
   })
+
+  // Keep mobile frame pacing nearer to 60 FPS under load.
+  app.ticker.maxFPS = lite ? 60 : 0
 
   host.appendChild(app.canvas)
   app.canvas.style.width = '100%'
@@ -182,7 +189,7 @@ export async function createGameRenderer(
   const mapView = buildMapView(textures)
   world.addChild(mapView.root)
 
-  const wakeSystem = createShipWakeSystem()
+  const wakeSystem = createShipWakeSystem(lite)
   world.addChild(wakeSystem.container)
 
   const entityLayer = new Container()
@@ -214,14 +221,16 @@ export async function createGameRenderer(
     text: 'PAUSED\nP or Continue',
     style: new TextStyle({
       fill: '#f0d27a',
-      fontSize: 34,
+      fontSize: lite ? 28 : 34,
       fontWeight: '700',
       align: 'center',
-      dropShadow: {
-        color: '#000000',
-        blur: 4,
-        distance: 2,
-      },
+      dropShadow: lite
+        ? undefined
+        : {
+            color: '#000000',
+            blur: 4,
+            distance: 2,
+          },
     }),
   })
   pauseText.anchor.set(0.5)
@@ -287,14 +296,16 @@ export async function createGameRenderer(
       rotation: state.player.rotation,
       alive: state.player.alive && !state.paused,
       moving: playerMoving && !state.paused,
-      dense: true,
+      dense: !lite,
     })
     shipPrevPos.set('player', { x: state.player.x, y: state.player.y })
 
     applyCamera(state.player.x, state.player.y)
 
     const liveEnemyIds = new Set(state.enemies.map((enemy) => enemy.id))
-    const liveWakeIds = new Set<string>(['player', ...liveEnemyIds])
+    const liveWakeIds = new Set<string>(
+      lite ? ['player'] : ['player', ...liveEnemyIds],
+    )
 
     for (const [id, view] of enemyViews) {
       if (!liveEnemyIds.has(id)) {
@@ -327,14 +338,16 @@ export async function createGameRenderer(
         Boolean(prev) &&
         (Math.abs(prev!.x - enemy.x) > MOVE_EPS ||
           Math.abs(prev!.y - enemy.y) > MOVE_EPS)
-      wakeSystem.syncShip({
-        id: enemy.id,
-        x: enemy.x,
-        y: enemy.y,
-        rotation: enemy.rotation,
-        alive: enemy.alive && !state.paused,
-        moving: moving && !state.paused,
-      })
+      if (!lite) {
+        wakeSystem.syncShip({
+          id: enemy.id,
+          x: enemy.x,
+          y: enemy.y,
+          rotation: enemy.rotation,
+          alive: enemy.alive && !state.paused,
+          moving: moving && !state.paused,
+        })
+      }
       shipPrevPos.set(enemy.id, { x: enemy.x, y: enemy.y })
     }
 
@@ -438,7 +451,18 @@ export async function createGameRenderer(
 
   function destroy() {
     wakeSystem.destroy()
-    app.destroy(true, { children: true })
+    // Keep shared Pixi Assets / textures alive for the next match.
+    app.destroy(
+      {
+        removeView: true,
+      },
+      {
+        children: true,
+        texture: false,
+        textureSource: false,
+        context: false,
+      },
+    )
   }
 
   resize(app.screen.width, app.screen.height)
