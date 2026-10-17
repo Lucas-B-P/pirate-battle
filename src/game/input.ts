@@ -9,6 +9,9 @@ export type InputState = {
   /** World-space aim point for the front cannon (mouse / pointer). */
   aimX: number | null
   aimY: number | null
+  /** Virtual joystick axes in screen space (-1..1). Zero when unused. */
+  stickX: number
+  stickY: number
 }
 
 const keys = new Set<string>()
@@ -18,6 +21,8 @@ let aimX: number | null = null
 let aimY: number | null = null
 /** Set from the arena canvas only (not HUD / menu clicks). */
 let canvasFireHeld = false
+let stickX = 0
+let stickY = 0
 
 function isKeyDown(code: string): boolean {
   return keys.has(code) || virtualKeys.has(code)
@@ -39,6 +44,16 @@ export function setAimPoint(x: number | null, y: number | null) {
 
 export function setCanvasFireHeld(isDown: boolean) {
   canvasFireHeld = isDown
+}
+
+export function setVirtualStick(x: number, y: number) {
+  stickX = x
+  stickY = y
+}
+
+export function clearVirtualStick() {
+  stickX = 0
+  stickY = 0
 }
 
 function isFormField(target: EventTarget | null): boolean {
@@ -63,6 +78,8 @@ const idleInput: InputState = {
   pausePressed: false,
   aimX: null,
   aimY: null,
+  stickX: 0,
+  stickY: 0,
 }
 
 export function createInputController(isGameplayActive: () => boolean = () => true) {
@@ -99,6 +116,8 @@ export function createInputController(isGameplayActive: () => boolean = () => tr
     window.removeEventListener('keyup', onKeyUp)
     keys.clear()
     canvasFireHeld = false
+    stickX = 0
+    stickY = 0
     pauseWasDown = false
   }
 
@@ -106,6 +125,8 @@ export function createInputController(isGameplayActive: () => boolean = () => tr
     keys.clear()
     virtualKeys.clear()
     canvasFireHeld = false
+    stickX = 0
+    stickY = 0
   }
 
   function read(): InputState {
@@ -113,6 +134,8 @@ export function createInputController(isGameplayActive: () => boolean = () => tr
       keys.clear()
       virtualKeys.clear()
       canvasFireHeld = false
+      stickX = 0
+      stickY = 0
       pauseWasDown = false
       return { ...idleInput, aimX, aimY }
     }
@@ -133,6 +156,8 @@ export function createInputController(isGameplayActive: () => boolean = () => tr
       pausePressed,
       aimX,
       aimY,
+      stickX,
+      stickY,
     }
   }
 

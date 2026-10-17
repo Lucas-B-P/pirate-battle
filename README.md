@@ -36,18 +36,17 @@ Combat tests use `?e2e=1` and `window.__pirateBattleTest` (seeded RNG + `step(dt
 
 ## Controls
 
-| Action | Keyboard | Touch |
+| Action | Keyboard / mouse | Mobile (landscape) |
 | --- | --- | --- |
-| Forward | `W` / `↑` | ▲ |
-| Turn | `A` `D` | ◀ ▶ |
-| Front cannon (aim with mouse) | `Space` / click | Fire |
-| Port broadside | `Q` | L |
-| Starboard broadside | `E` | R |
+| Move / turn | `W` `A` `D` / arrows | Virtual joystick (left) |
+| Front cannon | `Space` / click arena | Tap the arena in the fire direction |
+| Port broadside | `Q` | Left ability button |
+| Starboard broadside | `E` | Right ability button |
 | Pause | `P` / `Esc` | Pause |
 
-Supported mobile orientation: **landscape** (see `manifest.webmanifest`). In portrait, or when the window resizes, the HUD and touch pads shrink and stay on-screen. Match rules do not change with viewport size.
+Mobile is forced to **landscape**: portrait shows a rotate overlay, and the app requests `screen.orientation.lock('landscape')` when the browser allows it (best in installed / standalone mode). Match rules do not change with viewport size.
 
-On touch, the left cluster moves/turns and the right cluster fires. On desktop with a fine pointer, movement pads are hidden; keyboard and arena click still work. Game keys are captured only while gameplay is active.
+On desktop with a fine pointer, the joystick is hidden; keyboard and arena click still work. Game keys are captured only while gameplay is active.
 
 UI fonts: Figtree and Syne (SIL OFL) under `src/fonts/`.
 

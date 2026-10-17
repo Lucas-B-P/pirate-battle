@@ -6,10 +6,12 @@ import type { GameConfig } from '../config/gameConfig'
 import { loadGameTextures } from './assets'
 import { createGameAudio } from './audio'
 import {
+  clearVirtualStick,
   createInputController,
   setAimPoint,
   setCanvasFireHeld,
   setVirtualKey,
+  setVirtualStick,
 } from './input'
 import { createSeededRandom, setRandomSource } from './random'
 import { createGameRenderer } from './renderer'
@@ -66,6 +68,89 @@ function TouchPad({
       />
       <img className="touch-btn__icon" src={assetUrl(icon)} alt="" />
     </button>
+  )
+}
+
+const JOYSTICK_RADIUS = 54
+
+function VirtualJoystick() {
+  const rootRef = useRef<HTMLDivElement | null>(null)
+  const knobRef = useRef<HTMLDivElement | null>(null)
+  const activePointer = useRef<number | null>(null)
+
+  useEffect(() => {
+    const root = rootRef.current
+    const knob = knobRef.current
+    if (!root || !knob) return
+
+    const setKnob = (nx: number, ny: number) => {
+      knob.style.transform = `translate(calc(-50% + ${nx * JOYSTICK_RADIUS}px), calc(-50% + ${ny * JOYSTICK_RADIUS}px))`
+    }
+
+    const updateFromEvent = (event: PointerEvent) => {
+      const rect = root.getBoundingClientRect()
+      const cx = rect.left + rect.width / 2
+      const cy = rect.top + rect.height / 2
+      let dx = event.clientX - cx
+      let dy = event.clientY - cy
+      const dist = Math.hypot(dx, dy)
+      if (dist > JOYSTICK_RADIUS && dist > 0) {
+        dx = (dx / dist) * JOYSTICK_RADIUS
+        dy = (dy / dist) * JOYSTICK_RADIUS
+      }
+      const nx = dx / JOYSTICK_RADIUS
+      const ny = dy / JOYSTICK_RADIUS
+      setVirtualStick(nx, ny)
+      setKnob(nx, ny)
+    }
+
+    const onDown = (event: PointerEvent) => {
+      if (event.button !== 0) return
+      event.preventDefault()
+      event.stopPropagation()
+      activePointer.current = event.pointerId
+      root.setPointerCapture(event.pointerId)
+      updateFromEvent(event)
+    }
+
+    const onMove = (event: PointerEvent) => {
+      if (activePointer.current !== event.pointerId) return
+      event.preventDefault()
+      updateFromEvent(event)
+    }
+
+    const onUp = (event: PointerEvent) => {
+      if (activePointer.current !== event.pointerId) return
+      activePointer.current = null
+      clearVirtualStick()
+      setKnob(0, 0)
+    }
+
+    root.addEventListener('pointerdown', onDown)
+    root.addEventListener('pointermove', onMove)
+    root.addEventListener('pointerup', onUp)
+    root.addEventListener('pointercancel', onUp)
+
+    return () => {
+      root.removeEventListener('pointerdown', onDown)
+      root.removeEventListener('pointermove', onMove)
+      root.removeEventListener('pointerup', onUp)
+      root.removeEventListener('pointercancel', onUp)
+      clearVirtualStick()
+    }
+  }, [])
+
+  return (
+    <div
+      ref={rootRef}
+      className="touch-joystick"
+      role="group"
+      aria-label="Move ship"
+      tabIndex={-1}
+    >
+      <div className="touch-joystick__base" aria-hidden="true" />
+      <div ref={knobRef} className="touch-joystick__knob" aria-hidden="true" />
+    </div>
   )
 }
 
@@ -571,25 +656,7 @@ export function GameCanvas({
         inert={blockPlay}
       >
         <div className="touch-cluster touch-cluster--move">
-          <TouchPad
-            code="KeyA"
-            label="Turn left (A)"
-            hint="A"
-            icon="assets/png/default/ui/controls/icon_turn_left.png"
-          />
-          <TouchPad
-            code="KeyW"
-            label="Forward (W)"
-            hint="W"
-            icon="assets/png/default/ui/controls/icon_forward.png"
-            className="touch-btn--forward"
-          />
-          <TouchPad
-            code="KeyD"
-            label="Turn right (D)"
-            hint="D"
-            icon="assets/png/default/ui/controls/icon_turn_right.png"
-          />
+          <VirtualJoystick />
         </div>
         <div className="touch-cluster touch-cluster--abilities">
           <TouchPad
@@ -603,7 +670,7 @@ export function GameCanvas({
             label="Front cannon (Space)"
             hint="Space"
             icon="assets/png/default/ui/controls/icon_fire_front.png"
-            className="touch-fire"
+            className="touch-fire touch-fire--desktop"
           />
           <TouchPad
             code="KeyE"
@@ -612,6 +679,9 @@ export function GameCanvas({
             icon="assets/png/default/ui/controls/icon_fire_right.png"
           />
         </div>
+        <p className="touch-hint" aria-hidden="true">
+          Tap arena to fire
+        </p>
       </div>
     </div>
   )

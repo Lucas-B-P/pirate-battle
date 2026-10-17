@@ -224,6 +224,8 @@ function spawnEnemy(state: SimulationState, config: GameConfig) {
   state.enemies.push(enemy)
 }
 
+const STICK_DEADZONE = 0.22
+
 function updatePlayer(
   state: SimulationState,
   config: GameConfig,
@@ -233,21 +235,39 @@ function updatePlayer(
   const player = state.player
   if (!player.alive) return
 
-  if (input.rotateLeft) {
-    player.rotation -= config.playerRotationSpeed * dt
-  }
-  if (input.rotateRight) {
-    player.rotation += config.playerRotationSpeed * dt
-  }
-
-  if (input.forward) {
+  const stickMag = Math.hypot(input.stickX, input.stickY)
+  if (stickMag > STICK_DEADZONE) {
+    const targetAngle = Math.atan2(input.stickX, -input.stickY)
+    player.rotation = rotateTowards(
+      player.rotation,
+      targetAngle,
+      config.playerRotationSpeed * dt,
+    )
+    const thrust = Math.min(1, stickMag)
     const dir = directionFromRotation(player.rotation)
     tryMoveShip(
       player,
-      player.x + dir.x * config.playerMoveSpeed * dt,
-      player.y + dir.y * config.playerMoveSpeed * dt,
+      player.x + dir.x * config.playerMoveSpeed * thrust * dt,
+      player.y + dir.y * config.playerMoveSpeed * thrust * dt,
       state,
     )
+  } else {
+    if (input.rotateLeft) {
+      player.rotation -= config.playerRotationSpeed * dt
+    }
+    if (input.rotateRight) {
+      player.rotation += config.playerRotationSpeed * dt
+    }
+
+    if (input.forward) {
+      const dir = directionFromRotation(player.rotation)
+      tryMoveShip(
+        player,
+        player.x + dir.x * config.playerMoveSpeed * dt,
+        player.y + dir.y * config.playerMoveSpeed * dt,
+        state,
+      )
+    }
   }
 
   const aimRotation =

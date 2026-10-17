@@ -413,6 +413,45 @@ h2,
   margin-top: 1rem;
 }
 
+.landscape-gate {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  background:
+    radial-gradient(circle at 30% 20%, rgba(23, 74, 112, 0.55), transparent 45%),
+    rgba(8, 18, 32, 0.94);
+}
+
+.landscape-gate__card {
+  width: min(360px, 92vw);
+  padding: 1.4rem 1.2rem;
+  border-radius: 18px;
+  border: 2px solid rgba(201, 161, 91, 0.7);
+  background: #1a2f45;
+  text-align: center;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+}
+
+.landscape-gate__title {
+  margin: 0 0 0.55rem;
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #f0d27a;
+}
+
+.landscape-gate__text {
+  margin: 0;
+  color: #d7e2ea;
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .scene-backdrop__image,
   .btn,

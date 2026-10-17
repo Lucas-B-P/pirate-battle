@@ -2,6 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import App from './App'
+import { LandscapeGate } from './components/LandscapeGate'
 import { bootMenuAudio } from './audio/uiAudio'
 import './styles/global.css'
 import './styles/screens.css'
@@ -40,7 +41,9 @@ void enableMocking().then(() => {
   createRoot(rootElement).render(
     <StrictMode>
       <QueryClientProvider client={queryClient}>
-        <App />
+        <LandscapeGate>
+          <App />
+        </LandscapeGate>
       </QueryClientProvider>
     </StrictMode>,
   )
