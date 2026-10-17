@@ -418,19 +418,29 @@ html.immersive-mobile body {
   position: fixed;
   inset: 0;
   width: 100%;
+  width: var(--vv-width, 100%);
   height: 100%;
+  height: var(--vv-height, 100%);
+  top: var(--vv-top, 0px);
+  left: var(--vv-left, 0px);
   overflow: hidden;
   overscroll-behavior: none;
   touch-action: manipulation;
   background: #0b1d33;
 }
 
+html.immersive-mobile #root,
+html.immersive-mobile .app-shell,
 html.immersive-mobile .app-shell--game,
 html.immersive-mobile .screen--game,
-html.immersive-mobile .game-fullscreen {
-  height: 100svh;
-  max-height: 100svh;
-  min-height: 100svh;
+html.immersive-mobile .game-fullscreen,
+html.immersive-mobile .wood-stage {
+  height: 100%;
+  height: var(--vv-height, 100svh);
+  max-height: 100%;
+  max-height: var(--vv-height, 100svh);
+  min-height: 100%;
+  min-height: var(--vv-height, 100svh);
 }
 
 html.immersive-mobile .match-hud {
@@ -474,6 +484,34 @@ html.immersive-mobile .match-hud {
   color: #d7e2ea;
   font-size: 0.95rem;
   line-height: 1.45;
+}
+
+.landscape-chrome-tip {
+  position: fixed;
+  left: 50%;
+  bottom: max(0.55rem, env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  z-index: 9000;
+  margin: 0;
+  max-width: min(420px, 92vw);
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+  border: 1px solid rgba(240, 210, 122, 0.45);
+  background: rgba(12, 22, 36, 0.88);
+  color: #f0d27a;
+  font-family: var(--font-display);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-align: center;
+  text-transform: uppercase;
+  pointer-events: none;
+  opacity: 1;
+  transition: opacity 0.5s ease;
+}
+
+.landscape-chrome-tip--gone {
+  opacity: 0;
 }
 
 @media (prefers-reduced-motion: reduce) {

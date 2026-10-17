@@ -89,7 +89,11 @@ export function isWaterAt(x: number, y: number, clearance = 0): boolean {
  * Builds the map from the editable ASCII level.
  * Water + land are culled to the camera so the full 10× arena is never drawn at once.
  */
-export function buildTilemapView(textures: TilemapTextures): MapViewHandle {
+export function buildTilemapView(
+  textures: TilemapTextures,
+  options: { lite?: boolean } = {},
+): MapViewHandle {
+  const lite = Boolean(options.lite)
   const root = new Container()
   const { cols, rows } = getLevelSize()
 
@@ -106,6 +110,12 @@ export function buildTilemapView(textures: TilemapTextures): MapViewHandle {
   root.addChild(landLayer)
 
   const tracked: TileSprite[] = []
+  let lastMinC = Number.NaN
+  let lastMaxC = Number.NaN
+  let lastMinR = Number.NaN
+  let lastMaxR = Number.NaN
+  let lastWaterLeft = Number.NaN
+  let lastWaterTop = Number.NaN
 
   for (let row = 0; row < rows; row += 1) {
     for (let col = 0; col < cols; col += 1) {
@@ -116,22 +126,29 @@ export function buildTilemapView(textures: TilemapTextures): MapViewHandle {
       cellRoot.x = col * TILE_SIZE
       cellRoot.y = row * TILE_SIZE
 
-      const sand = new Graphics()
-      const pad = Math.max(2, TILE_SIZE * 0.02)
-      const inset = Math.max(6, TILE_SIZE * 0.09)
-      sand
-        .roundRect(pad, pad, TILE_SIZE - pad * 2, TILE_SIZE - pad * 2, TILE_SIZE * 0.14)
-        .fill({ color: SAND })
-      sand
-        .roundRect(
-          inset,
-          inset,
-          TILE_SIZE - inset * 2,
-          TILE_SIZE - inset * 2,
-          TILE_SIZE * 0.12,
-        )
-        .fill({ color: SAND_SHADOW, alpha: 0.25 })
-      cellRoot.addChild(sand)
+      if (lite) {
+        // One rect per tile instead of two rounded fills — cheaper on mobile GPUs.
+        const sand = new Graphics()
+        sand.rect(2, 2, TILE_SIZE - 4, TILE_SIZE - 4).fill({ color: SAND })
+        cellRoot.addChild(sand)
+      } else {
+        const sand = new Graphics()
+        const pad = Math.max(2, TILE_SIZE * 0.02)
+        const inset = Math.max(6, TILE_SIZE * 0.09)
+        sand
+          .roundRect(pad, pad, TILE_SIZE - pad * 2, TILE_SIZE - pad * 2, TILE_SIZE * 0.14)
+          .fill({ color: SAND })
+        sand
+          .roundRect(
+            inset,
+            inset,
+            TILE_SIZE - inset * 2,
+            TILE_SIZE - inset * 2,
+            TILE_SIZE * 0.12,
+          )
+          .fill({ color: SAND_SHADOW, alpha: 0.25 })
+        cellRoot.addChild(sand)
+      }
 
       const cx = TILE_SIZE / 2
       const cy = TILE_SIZE / 2
@@ -193,17 +210,39 @@ export function buildTilemapView(textures: TilemapTextures): MapViewHandle {
 
     const viewW = Math.max(TILE_SIZE * 4, right - left)
     const viewH = Math.max(TILE_SIZE * 4, bottom - top)
-    water.width = viewW
-    water.height = viewH
-    water.x = left
-    water.y = top
-    water.tilePosition.x = -left
-    water.tilePosition.y = -top
+    if (
+      left !== lastWaterLeft ||
+      top !== lastWaterTop ||
+      water.width !== viewW ||
+      water.height !== viewH
+    ) {
+      water.width = viewW
+      water.height = viewH
+      water.x = left
+      water.y = top
+      water.tilePosition.x = -left
+      water.tilePosition.y = -top
+      lastWaterLeft = left
+      lastWaterTop = top
+    }
 
     const minC = Math.max(0, Math.floor(left / TILE_SIZE))
     const maxC = Math.min(cols - 1, Math.floor(right / TILE_SIZE))
     const minR = Math.max(0, Math.floor(top / TILE_SIZE))
     const maxR = Math.min(rows - 1, Math.floor(bottom / TILE_SIZE))
+
+    if (
+      minC === lastMinC &&
+      maxC === lastMaxC &&
+      minR === lastMinR &&
+      maxR === lastMaxR
+    ) {
+      return
+    }
+    lastMinC = minC
+    lastMaxC = maxC
+    lastMinR = minR
+    lastMaxR = maxR
 
     for (const tile of tracked) {
       tile.display.visible =

@@ -10,8 +10,10 @@ type WakeEmitter = {
   lastY: number
 }
 
+let sharedFoamTexture: Texture | null = null
+
 function createFoamTexture(): Texture {
-  const size = 64
+  const size = 32
   const canvas = document.createElement('canvas')
   canvas.width = size
   canvas.height = size
@@ -38,14 +40,21 @@ function createFoamTexture(): Texture {
   return Texture.from(canvas)
 }
 
+function getFoamTexture(): Texture {
+  if (!sharedFoamTexture || sharedFoamTexture.destroyed) {
+    sharedFoamTexture = createFoamTexture()
+  }
+  return sharedFoamTexture
+}
+
 function wakeConfig(texture: Texture, dense: boolean, lite: boolean): EmitterConfigV3 {
   const scale = TILE_SIZE / 64
   return {
-    lifetime: { min: lite ? 0.35 : 0.55, max: lite ? 0.7 : 1.15 },
-    frequency: lite ? (dense ? 0.05 : 0.08) : dense ? 0.016 : 0.028,
+    lifetime: { min: lite ? 0.45 : 0.55, max: lite ? 0.95 : 1.15 },
+    frequency: lite ? (dense ? 0.04 : 0.065) : dense ? 0.016 : 0.028,
     spawnChance: 1,
     particlesPerWave: lite ? 1 : dense ? 3 : 2,
-    maxParticles: lite ? (dense ? 48 : 28) : dense ? 280 : 160,
+    maxParticles: lite ? (dense ? 70 : 40) : dense ? 280 : 160,
     addAtBack: true,
     pos: { x: 0, y: 0 },
     emit: false,
@@ -103,10 +112,10 @@ function wakeConfig(texture: Texture, dense: boolean, lite: boolean): EmitterCon
         config: {
           accel: 0,
           minSpeed: 0,
-          maxSpeed: 12,
+          maxSpeed: lite ? 0 : 12,
           // Spread relative to emitter.rotate() (already aimed aft).
-          minStart: -28,
-          maxStart: 28,
+          minStart: lite ? -18 : -28,
+          maxStart: lite ? 18 : 28,
         },
       },
       {
@@ -114,7 +123,7 @@ function wakeConfig(texture: Texture, dense: boolean, lite: boolean): EmitterCon
         config: {
           type: 'torus',
           data: {
-            radius: 14 * scale,
+            radius: (lite ? 10 : 14) * scale,
             innerRadius: 0,
             affectRotation: false,
           },
@@ -145,12 +154,13 @@ export type ShipWakeSystem = {
 }
 
 export function createShipWakeSystem(lite = false): ShipWakeSystem {
-  const foamTexture = createFoamTexture()
+  const foamTexture = getFoamTexture()
   const container = new ParticleContainer({
     dynamicProperties: {
       position: true,
       scale: true,
-      rotation: true,
+      // Rotation stays static after spawn on mobile; cheaper batch updates.
+      rotation: !lite,
       color: true,
     },
   })
@@ -222,7 +232,7 @@ export function createShipWakeSystem(lite = false): ShipWakeSystem {
     }
     emitters.clear()
     container.destroy({ children: true })
-    foamTexture.destroy(true)
+    // Keep shared foam texture for the next match (page-lifetime cache).
   }
 
   return { container, syncShip, prune, update, destroy }

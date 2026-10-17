@@ -377,10 +377,21 @@ function updateProjectiles(state: SimulationState, dt: number) {
   }
 }
 
+function compactInPlace<T>(items: T[], keep: (item: T) => boolean): void {
+  let write = 0
+  for (let i = 0; i < items.length; i += 1) {
+    const item = items[i]
+    if (!item || !keep(item)) continue
+    items[write] = item
+    write += 1
+  }
+  items.length = write
+}
+
 function cleanupEntities(state: SimulationState) {
-  state.enemies = state.enemies.filter((enemy) => enemy.alive)
-  state.projectiles = state.projectiles.filter((bullet) => bullet.alive)
-  state.explosions = state.explosions.filter((item) => item.life > 0)
+  compactInPlace(state.enemies, (enemy) => enemy.alive)
+  compactInPlace(state.projectiles, (bullet) => bullet.alive)
+  compactInPlace(state.explosions, (item) => item.life > 0)
 }
 
 export function createSimulation(config: GameConfig): SimulationState {

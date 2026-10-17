@@ -44,7 +44,7 @@ Combat tests use `?e2e=1` and `window.__pirateBattleTest` (seeded RNG + `step(dt
 | Starboard broadside | `E` | Right ability button |
 | Pause | `P` / `Esc` | Pause |
 
-Mobile is forced to **landscape**: portrait shows a rotate overlay; landscape tries fullscreen + orientation lock when the browser allows it (most reliable as an installed PWA / Add to Home Screen). Match textures are cached for the page lifetime so rematches skip the loading pass. Mobile also uses a lighter render path (lower resolution, fewer wake particles). Match rules do not change with viewport size.
+Mobile is forced to **landscape**: portrait shows a rotate overlay; landscape tries fullscreen + orientation lock when the browser allows it. On iOS Safari inside a normal tab the browser chrome cannot be removed completely — add the site to the Home Screen (PWA) for true fullscreen. Match textures are cached for the page lifetime so rematches skip the loading pass. Mobile also uses a lighter render path (lower resolution, fewer wake particles). Match rules do not change with viewport size.
 
 On desktop with a fine pointer, the joystick is hidden; keyboard and arena click still work. Game keys are captured only while gameplay is active.
 

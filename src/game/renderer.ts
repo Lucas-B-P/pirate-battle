@@ -16,7 +16,11 @@ import {
   TILE_SIZE,
 } from './arena'
 import type { GameTextures } from './assets'
-import { preferLiteGraphics, renderResolutionCap } from '../mobile/device'
+import {
+  preferLiteGraphics,
+  renderMaxFps,
+  renderResolutionCap,
+} from '../mobile/device'
 import { buildMapView } from './mapView'
 import { createShipWakeSystem } from './shipWake'
 import type { SimulationState } from './types'
@@ -38,13 +42,15 @@ type ShipView = {
   fire: AnimatedSprite
   fireTime: number
   lastHealth: number
+  lastDrawnHealth: number
+  lastTint: number
   hitFlash: number
   barWidth: number
 }
 
 type BulletView = {
   sprite: Sprite
-  trail: Graphics
+  trail: Graphics | null
 }
 
 export type GameRenderer = {
@@ -118,6 +124,8 @@ function createShipView(
     fire,
     fireTime: 0,
     lastHealth: Number.POSITIVE_INFINITY,
+    lastDrawnHealth: Number.NaN,
+    lastTint: 0xffffff,
     hitFlash: 0,
     barWidth,
   }
@@ -128,6 +136,7 @@ function syncShipDamage(
   health: number,
   maxHealth: number,
   dt: number,
+  lite: boolean,
 ) {
   if (health < view.lastHealth) {
     view.hitFlash = 0.22
@@ -138,20 +147,35 @@ function syncShipDamage(
   const ratio = maxHealth > 0 ? health / maxHealth : 0
   const wear = 1 - ratio
   const flash = view.hitFlash > 0 ? 1 : 0
-  view.sprite.tint =
+  const tint =
     flash > 0
       ? 0xff6b6b
       : ((Math.round(255 - wear * 70) << 16) |
           (Math.round(255 - wear * 110) << 8) |
           Math.round(255 - wear * 140))
+  if (tint !== view.lastTint) {
+    view.sprite.tint = tint
+    view.lastTint = tint
+  }
 
-  updateHealthBar(view.barFill, health, maxHealth, view.barWidth)
-  view.fire.visible = ratio <= 0.5 && health > 0
-  view.fire.alpha = ratio < 0.25 ? 1 : 0.85
-  if (view.fire.visible && dt > 0) {
-    view.fireTime += dt
-    const frame = Math.floor(view.fireTime / FIRE_FRAME_SECONDS) % view.fire.totalFrames
-    view.fire.gotoAndStop(frame)
+  if (health !== view.lastDrawnHealth) {
+    updateHealthBar(view.barFill, health, maxHealth, view.barWidth)
+    view.lastDrawnHealth = health
+  }
+
+  const showFire = ratio <= 0.5 && health > 0
+  view.fire.visible = showFire
+  if (showFire) {
+    view.fire.alpha = ratio < 0.25 ? 1 : 0.85
+    if (dt > 0) {
+      view.fireTime += dt
+      // Skip every other fire frame on mobile — still reads as burning.
+      if (!lite || Math.floor(view.fireTime / FIRE_FRAME_SECONDS) % 2 === 0) {
+        const frame =
+          Math.floor(view.fireTime / FIRE_FRAME_SECONDS) % view.fire.totalFrames
+        view.fire.gotoAndStop(frame)
+      }
+    }
   }
 }
 
@@ -170,12 +194,14 @@ export async function createGameRenderer(
     antialias: !lite,
     resolution: renderResolutionCap(),
     autoDensity: true,
+    roundPixels: lite,
+    preference: 'webgl',
     ...(lite ? { powerPreference: 'high-performance' as const } : {}),
     hello: false,
   })
 
-  // Keep mobile frame pacing nearer to 60 FPS under load.
-  app.ticker.maxFPS = lite ? 60 : 0
+  // Cap mobile FPS so the GPU spends less time filling retina pixels.
+  app.ticker.maxFPS = renderMaxFps()
 
   host.appendChild(app.canvas)
   app.canvas.style.width = '100%'
@@ -186,7 +212,7 @@ export async function createGameRenderer(
   const world = new Container()
   app.stage.addChild(world)
 
-  const mapView = buildMapView(textures)
+  const mapView = buildMapView(textures, { lite })
   world.addChild(mapView.root)
 
   const wakeSystem = createShipWakeSystem(lite)
@@ -243,6 +269,10 @@ export async function createGameRenderer(
   let viewHeight = app.screen.height
   let camX = ARENA_WIDTH / 2
   let camY = ARENA_HEIGHT / 2
+  const liveEnemyIds = new Set<string>()
+  const liveWakeIds = new Set<string>()
+  const liveBulletIds = new Set<string>()
+  const liveBoomIds = new Set<string>()
 
   function applyCamera(focusX: number, focusY: number) {
     const worldViewW = viewWidth / viewScale
@@ -282,6 +312,7 @@ export async function createGameRenderer(
       state.player.health,
       state.player.maxHealth,
       dt,
+      lite,
     )
 
     const playerPrev = shipPrevPos.get('player')
@@ -296,16 +327,19 @@ export async function createGameRenderer(
       rotation: state.player.rotation,
       alive: state.player.alive && !state.paused,
       moving: playerMoving && !state.paused,
-      dense: !lite,
+      dense: true,
     })
     shipPrevPos.set('player', { x: state.player.x, y: state.player.y })
 
     applyCamera(state.player.x, state.player.y)
 
-    const liveEnemyIds = new Set(state.enemies.map((enemy) => enemy.id))
-    const liveWakeIds = new Set<string>(
-      lite ? ['player'] : ['player', ...liveEnemyIds],
-    )
+    liveEnemyIds.clear()
+    liveWakeIds.clear()
+    liveWakeIds.add('player')
+    for (const enemy of state.enemies) {
+      liveEnemyIds.add(enemy.id)
+      liveWakeIds.add(enemy.id)
+    }
 
     for (const [id, view] of enemyViews) {
       if (!liveEnemyIds.has(id)) {
@@ -331,37 +365,37 @@ export async function createGameRenderer(
       view.root.x = enemy.x
       view.root.y = enemy.y
       view.sprite.rotation = enemy.rotation + SHIP_SPRITE_ROTATION_OFFSET
-      syncShipDamage(view, enemy.health, enemy.maxHealth, dt)
+      syncShipDamage(view, enemy.health, enemy.maxHealth, dt, lite)
 
       const prev = shipPrevPos.get(enemy.id)
       const moving =
         Boolean(prev) &&
         (Math.abs(prev!.x - enemy.x) > MOVE_EPS ||
           Math.abs(prev!.y - enemy.y) > MOVE_EPS)
-      if (!lite) {
-        wakeSystem.syncShip({
-          id: enemy.id,
-          x: enemy.x,
-          y: enemy.y,
-          rotation: enemy.rotation,
-          alive: enemy.alive && !state.paused,
-          moving: moving && !state.paused,
-        })
-      }
+      wakeSystem.syncShip({
+        id: enemy.id,
+        x: enemy.x,
+        y: enemy.y,
+        rotation: enemy.rotation,
+        alive: enemy.alive && !state.paused,
+        moving: moving && !state.paused,
+        dense: false,
+      })
       shipPrevPos.set(enemy.id, { x: enemy.x, y: enemy.y })
     }
 
     wakeSystem.prune(liveWakeIds)
     wakeSystem.update(state.paused ? 0 : dt)
 
-    const liveBulletIds = new Set(
-      state.projectiles.filter((item) => item.alive).map((item) => item.id),
-    )
+    liveBulletIds.clear()
+    for (const item of state.projectiles) {
+      if (item.alive) liveBulletIds.add(item.id)
+    }
 
     for (const [id, view] of bulletViews) {
       if (!liveBulletIds.has(id)) {
         view.sprite.destroy()
-        view.trail.destroy()
+        view.trail?.destroy()
         bulletViews.delete(id)
       }
     }
@@ -370,31 +404,35 @@ export async function createGameRenderer(
       if (!bullet.alive) continue
       let view = bulletViews.get(bullet.id)
       if (!view) {
-        const trail = new Graphics()
+        // Graphics trail strokes are expensive on mobile GPUs — skip on lite.
+        const trail = lite ? null : new Graphics()
         const sprite = new Sprite(textures.cannonBall)
         sprite.anchor.set(0.5)
         sprite.scale.set(BULLET_SCALE)
         bulletViews.set(bullet.id, { sprite, trail })
-        entityLayer.addChild(trail)
+        if (trail) entityLayer.addChild(trail)
         entityLayer.addChild(sprite)
         view = { sprite, trail }
       }
 
-      const speed = Math.hypot(bullet.vx, bullet.vy) || 1
-      const tx = bullet.x - (bullet.vx / speed) * 150
-      const ty = bullet.y - (bullet.vy / speed) * 150
-      view.trail.clear()
-      view.trail
-        .moveTo(bullet.x, bullet.y)
-        .lineTo(tx, ty)
-        .stroke({ width: 36, color: 0x141414, alpha: 0.55 })
+      if (view.trail) {
+        const speed = Math.hypot(bullet.vx, bullet.vy) || 1
+        const tx = bullet.x - (bullet.vx / speed) * 150
+        const ty = bullet.y - (bullet.vy / speed) * 150
+        view.trail.clear()
+        view.trail
+          .moveTo(bullet.x, bullet.y)
+          .lineTo(tx, ty)
+          .stroke({ width: 36, color: 0x141414, alpha: 0.55 })
+      }
       view.sprite.x = bullet.x
       view.sprite.y = bullet.y
     }
 
-    const liveBoomIds = new Set(
-      state.explosions.filter((item) => item.life > 0).map((item) => item.id),
-    )
+    liveBoomIds.clear()
+    for (const item of state.explosions) {
+      if (item.life > 0) liveBoomIds.add(item.id)
+    }
 
     for (const [id, sprite] of explosionViews) {
       if (!liveBoomIds.has(id)) {

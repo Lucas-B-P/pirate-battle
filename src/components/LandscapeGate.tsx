@@ -1,9 +1,11 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { isMobileClient, isPortrait } from '../mobile/device'
+import { isMobileClient, isPortrait, isStandaloneDisplay } from '../mobile/device'
 import { enterImmersiveLandscape, exitImmersiveLandscape } from '../mobile/immersive'
 
 export function LandscapeGate({ children }: { children: ReactNode }) {
   const [blocked, setBlocked] = useState(false)
+  const [chromeTip, setChromeTip] = useState(false)
+  const [chromeTipGone, setChromeTipGone] = useState(false)
 
   useEffect(() => {
     const sync = () => {
@@ -12,10 +14,18 @@ export function LandscapeGate({ children }: { children: ReactNode }) {
       setBlocked(mobile && portrait)
       if (mobile && portrait) {
         void exitImmersiveLandscape()
+        setChromeTip(false)
       } else if (mobile && !portrait) {
         void enterImmersiveLandscape()
+        if (!isStandaloneDisplay()) {
+          setChromeTip(true)
+          setChromeTipGone(false)
+        } else {
+          setChromeTip(false)
+        }
       } else {
         void exitImmersiveLandscape()
+        setChromeTip(false)
       }
     }
 
@@ -37,6 +47,16 @@ export function LandscapeGate({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  useEffect(() => {
+    if (!chromeTip) return
+    const fade = window.setTimeout(() => setChromeTipGone(true), 4500)
+    const hide = window.setTimeout(() => setChromeTip(false), 5200)
+    return () => {
+      window.clearTimeout(fade)
+      window.clearTimeout(hide)
+    }
+  }, [chromeTip])
+
   return (
     <>
       {children}
@@ -56,6 +76,14 @@ export function LandscapeGate({ children }: { children: ReactNode }) {
             </p>
           </div>
         </div>
+      ) : null}
+      {chromeTip ? (
+        <p
+          className={`landscape-chrome-tip${chromeTipGone ? ' landscape-chrome-tip--gone' : ''}`}
+          aria-hidden="true"
+        >
+          Add to Home Screen for true fullscreen
+        </p>
       ) : null}
     </>
   )

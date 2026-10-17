@@ -47,7 +47,8 @@ overlap, or when the tab is backgrounded (expected; simulation is paused on blur
 - **Delta-time stepping** with a clamp (`0–50 ms`) so spikes do not teleport ships.
 - **Texture reuse**: ships, bullets and VFX share loaded textures; views are pooled in Maps and destroyed when entities die.
 - **No per-frame allocations** in hot paths beyond normal array filters on cleanup.
-- **Pixel ratio capped at 2** in the Pixi application init.
+- **Pixel ratio capped at 2** on desktop; mobile renders at **1×** with `maxFPS` 45, WebGL preference, and cheaper land fills — ship wakes stay on.
+- **Mobile skips bullet Graphics trails** (ship foam wakes remain); health bars / tints only redraw when values change.
 - **Audio** uses short one-shot `Audio` elements and is disabled in Playwright (`?e2e=1`).
 
 ## Limits observed

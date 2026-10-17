@@ -608,6 +608,12 @@
     text-transform: uppercase;
     white-space: nowrap;
     pointer-events: none;
+    opacity: 1;
+    transition: opacity 0.45s ease;
+  }
+
+  .touch-hint--fading {
+    opacity: 0;
   }
 }
 

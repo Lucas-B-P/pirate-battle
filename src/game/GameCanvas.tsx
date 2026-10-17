@@ -202,6 +202,8 @@ export function GameCanvas({
   const [loadProgress, setLoadProgress] = useState(0)
   const [loadError, setLoadError] = useState('')
   const [reloadToken, setReloadToken] = useState(0)
+  const [touchHintVisible, setTouchHintVisible] = useState(true)
+  const [touchHintFading, setTouchHintFading] = useState(false)
 
   const onSnapshotRef = useRef(onSnapshot)
   const onMatchEndRef = useRef(onMatchEnd)
@@ -225,6 +227,18 @@ export function GameCanvas({
     if (!loadError) return
     document.getElementById('retry-assets')?.focus()
   }, [loadError])
+
+  useEffect(() => {
+    if (loading || loadError) return
+    setTouchHintVisible(true)
+    setTouchHintFading(false)
+    const fadeTimer = window.setTimeout(() => setTouchHintFading(true), 1500)
+    const hideTimer = window.setTimeout(() => setTouchHintVisible(false), 2000)
+    return () => {
+      window.clearTimeout(fadeTimer)
+      window.clearTimeout(hideTimer)
+    }
+  }, [loading, loadError, reloadToken])
 
   useEffect(() => {
     if (!externalPaused || loading || loadError) return
@@ -679,9 +693,14 @@ export function GameCanvas({
             icon="assets/png/default/ui/controls/icon_fire_right.png"
           />
         </div>
-        <p className="touch-hint" aria-hidden="true">
-          Tap arena to fire
-        </p>
+        {touchHintVisible ? (
+          <p
+            className={`touch-hint${touchHintFading ? ' touch-hint--fading' : ''}`}
+            aria-hidden="true"
+          >
+            Tap arena to fire
+          </p>
+        ) : null}
       </div>
     </div>
   )
